@@ -59,6 +59,14 @@ function getUnattachedMediaByIds(ids: string[]) {
     .execute();
 }
 
+/** Get a single media with an ID and a user. */
+function getUnattachedMediaForUser(pubkey: string, id: string) {
+  return selectUnattachedMediaQuery()
+    .where('pubkey', '=', pubkey)
+    .where('id', '=', id)
+    .executeTakeFirst();
+}
+
 /** Delete rows as an event with media is being created. */
 function deleteAttachedMedia(pubkey: string, urls: string[]) {
   return db.deleteFrom('unattached_media')
@@ -73,5 +81,6 @@ export {
   getUnattachedMedia,
   getUnattachedMediaByIds,
   insertUnattachedMedia,
+  getUnattachedMediaForUser,
   type UnattachedMedia,
 };
