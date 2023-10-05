@@ -1,11 +1,10 @@
+import * as eventsDB from '@/db/events.ts';
 import { z } from '@/deps.ts';
 import { type DittoFilter } from '@/filter.ts';
-import * as mixer from '@/mixer.ts';
 import { getFeedPubkeys } from '@/queries.ts';
 import { booleanParamSchema } from '@/schema.ts';
 import { toStatus } from '@/transformers/nostr-to-mastoapi.ts';
 import { paginated, paginationSchema } from '@/utils/web.ts';
-import { Time } from '@/utils.ts';
 
 import type { AppContext, AppController } from '@/app.ts';
 
@@ -34,7 +33,7 @@ const hashtagTimelineController: AppController = (c) => {
 
 /** Render statuses for timelines. */
 async function renderStatuses(c: AppContext, filters: DittoFilter<1>[]) {
-  const events = await mixer.getFilters(filters, { timeout: Time.seconds(1) });
+  const events = await eventsDB.getFilters(filters);
 
   if (!events.length) {
     return c.json([]);
