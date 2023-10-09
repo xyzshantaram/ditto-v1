@@ -75,4 +75,7 @@ export { Machina } from 'https://gitlab.com/soapbox-pub/nostr-machina/-/raw/08a1
 export * as Sentry from 'npm:@sentry/node@^7.73.0';
 export { sentry as sentryMiddleware } from 'npm:@hono/sentry@^1.0.0';
 
+export { Database as DenoSqlite3 } from 'https://deno.land/x/sqlite3@0.9.1/mod.ts';
+export { DenoSqlite3Dialect } from 'https://gitlab.com/soapbox-pub/kysely-deno-sqlite/-/raw/820e58295b70a18086622f25fc3572887d3d4c1b/mod.ts';
+
 export type * as TypeFest from 'npm:type-fest@^4.3.0';
