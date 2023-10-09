@@ -1,8 +1,6 @@
 import { Conf } from '@/config.ts';
-import * as eventsDB from '@/db/events.ts';
 import { findUser } from '@/db/users.ts';
 import { lodash, nip19, type UnsignedEvent } from '@/deps.ts';
-import { getFollowedPubkeys } from '@/queries.ts';
 import { jsonMetaContentSchema } from '@/schemas/nostr.ts';
 import { verifyNip05Cached } from '@/utils/nip05.ts';
 import { Nip05, nostrDate, nostrNow, parseNip05 } from '@/utils.ts';
@@ -26,12 +24,12 @@ async function renderAccount(event: UnsignedEvent<0>, opts: ToAccountOpts = {}) 
 
   const npub = nip19.npubEncode(pubkey);
 
-  const [user, parsed05, followersCount, followingCount, statusesCount] = await Promise.all([
+  const [user, parsed05 /*followersCount, followingCount, statusesCount*/] = await Promise.all([
     findUser({ pubkey }),
     parseAndVerifyNip05(nip05, pubkey),
-    eventsDB.countFilters([{ kinds: [3], '#p': [pubkey] }]),
-    getFollowedPubkeys(pubkey).then((pubkeys) => pubkeys.length),
-    eventsDB.countFilters([{ kinds: [1], authors: [pubkey] }]),
+    // eventsDB.countFilters([{ kinds: [3], '#p': [pubkey] }]),
+    // getFollowedPubkeys(pubkey).then((pubkeys) => pubkeys.length),
+    // eventsDB.countFilters([{ kinds: [1], authors: [pubkey] }]),
   ]);
 
   return {
@@ -46,8 +44,8 @@ async function renderAccount(event: UnsignedEvent<0>, opts: ToAccountOpts = {}) 
     emojis: renderEmojis(event),
     fields: [],
     follow_requests_count: 0,
-    followers_count: followersCount,
-    following_count: followingCount,
+    followers_count: 0,
+    following_count: 0,
     fqn: parsed05?.handle || npub,
     header: banner,
     header_static: banner,
@@ -65,7 +63,7 @@ async function renderAccount(event: UnsignedEvent<0>, opts: ToAccountOpts = {}) 
         follow_requests_count: 0,
       }
       : undefined,
-    statuses_count: statusesCount,
+    statuses_count: 0,
     url: Conf.local(`/users/${pubkey}`),
     username: parsed05?.nickname || npub.substring(0, 8),
     pleroma: {

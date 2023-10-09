@@ -1,7 +1,6 @@
 import { isCWTag } from 'https://gitlab.com/soapbox-pub/mostr/-/raw/c67064aee5ade5e01597c6d23e22e53c628ef0e2/src/nostr/tags.ts';
 
 import { Conf } from '@/config.ts';
-import * as eventsDB from '@/db/events.ts';
 import { type Event, findReplyTag, nip19 } from '@/deps.ts';
 import { getMediaLinks, parseNoteContent } from '@/note.ts';
 import { getAuthor } from '@/queries.ts';
@@ -12,7 +11,7 @@ import { accountFromPubkey, renderAccount } from '@/views/mastodon/accounts.ts';
 import { DittoAttachment, renderAttachment } from '@/views/mastodon/attachments.ts';
 import { renderEmojis } from '@/views/mastodon/emojis.ts';
 
-async function renderStatus(event: Event<1>, viewerPubkey?: string) {
+async function renderStatus(event: Event<1>, _viewerPubkey?: string) {
   const profile = await getAuthor(event.pubkey);
   const account = profile ? await renderAccount(profile) : await accountFromPubkey(event.pubkey);
 
@@ -28,19 +27,19 @@ async function renderStatus(event: Event<1>, viewerPubkey?: string) {
 
   const { html, links, firstUrl } = parseNoteContent(event.content);
 
-  const [mentions, card, repliesCount, reblogsCount, favouritesCount, [repostEvent], [reactionEvent]] = await Promise
+  const [mentions, card /*repliesCount, reblogsCount, favouritesCount, [repostEvent], [reactionEvent]*/] = await Promise
     .all([
       Promise.all(mentionedPubkeys.map(toMention)),
       firstUrl ? unfurlCardCached(firstUrl) : null,
-      eventsDB.countFilters([{ kinds: [1], '#e': [event.id] }]),
-      eventsDB.countFilters([{ kinds: [6], '#e': [event.id] }]),
-      eventsDB.countFilters([{ kinds: [7], '#e': [event.id] }]),
-      viewerPubkey
-        ? eventsDB.getFilters([{ kinds: [6], '#e': [event.id], authors: [viewerPubkey] }], { limit: 1 })
-        : [],
-      viewerPubkey
-        ? eventsDB.getFilters([{ kinds: [7], '#e': [event.id], authors: [viewerPubkey] }], { limit: 1 })
-        : [],
+      // eventsDB.countFilters([{ kinds: [1], '#e': [event.id] }]),
+      // eventsDB.countFilters([{ kinds: [6], '#e': [event.id] }]),
+      // eventsDB.countFilters([{ kinds: [7], '#e': [event.id] }]),
+      // viewerPubkey
+      //   ? eventsDB.getFilters([{ kinds: [6], '#e': [event.id], authors: [viewerPubkey] }], { limit: 1 })
+      //   : [],
+      // viewerPubkey
+      //   ? eventsDB.getFilters([{ kinds: [7], '#e': [event.id], authors: [viewerPubkey] }], { limit: 1 })
+      //   : [],
     ]);
 
   const content = buildInlineRecipients(mentions) + html;
@@ -68,11 +67,13 @@ async function renderStatus(event: Event<1>, viewerPubkey?: string) {
     spoiler_text: (cw ? cw[1] : subject?.[1]) || '',
     visibility: 'public',
     language: event.tags.find((tag) => tag[0] === 'lang')?.[1] || null,
-    replies_count: repliesCount,
-    reblogs_count: reblogsCount,
-    favourites_count: favouritesCount,
-    favourited: reactionEvent?.content === '+',
-    reblogged: Boolean(repostEvent),
+    replies_count: 0,
+    reblogs_count: 0,
+    favourites_count: 0,
+    // favourited: reactionEvent?.content === '+',
+    favourited: false,
+    // reblogged: Boolean(repostEvent),
+    reblogged: false,
     muted: false,
     bookmarked: false,
     reblog: null,
