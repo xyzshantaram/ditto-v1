@@ -1,3 +1,4 @@
+import { db } from '@/db.ts';
 import { Conf } from '@/config.ts';
 import * as eventsDB from '@/db/events.ts';
 import { addRelays } from '@/db/relays.ts';
@@ -21,17 +22,20 @@ import type { EventData } from '@/types.ts';
  */
 async function handleEvent(event: Event): Promise<void> {
   if (encounterEvent(event)) return;
-  const data = await getEventData(event);
 
-  await Promise.all([
-    storeEvent(event, data),
-    processDeletions(event),
-    trackRelays(event),
-    trackHashtags(event),
-    processMedia(event, data),
-    streamOut(event, data),
-    broadcast(event, data),
-  ]);
+  await db.transaction().execute(async () => {
+    const data = await getEventData(event);
+
+    await Promise.all([
+      storeEvent(event, data),
+      processDeletions(event),
+      trackRelays(event),
+      trackHashtags(event),
+      processMedia(event, data),
+      streamOut(event, data),
+      broadcast(event, data),
+    ]);
+  })
 }
 
 /** Tracks encountered events to skip duplicates, improving idempotency and performance. */

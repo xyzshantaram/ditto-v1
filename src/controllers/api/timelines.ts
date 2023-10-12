@@ -1,3 +1,4 @@
+import { db } from '@/db.ts';
 import { z } from '@/deps.ts';
 import { type DittoFilter } from '@/filter.ts';
 import * as mixer from '@/mixer.ts';
@@ -40,8 +41,10 @@ async function renderStatuses(c: AppContext, filters: DittoFilter<1>[]) {
     return c.json([]);
   }
 
-  const statuses = await Promise.all(events.map((event) => renderStatus(event, c.get('pubkey'))));
-  return paginated(c, events, statuses);
+  return db.transaction().execute(async () => {
+    const statuses = await Promise.all(events.map((event) => renderStatus(event, c.get('pubkey'))));
+    return paginated(c, events, statuses);
+  })
 }
 
 export { hashtagTimelineController, homeTimelineController, publicTimelineController };
