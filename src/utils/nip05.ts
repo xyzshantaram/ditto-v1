@@ -18,14 +18,26 @@ async function lookup(value: string, opts: LookupOpts = {}): Promise<string | nu
 
   const [_, name = '_', domain] = match;
 
+  const handleAbort = () => {
+    console.log(`NIP-05 lookup aborted for @${name}@${domain}`);
+  };
+
+  const signal = AbortSignal.timeout(timeout);
+  signal.addEventListener('abort', handleAbort);
+
   try {
-    const res = await fetch(`https://${domain}/.well-known/nostr.json?name=${name}`, {
-      signal: AbortSignal.timeout(timeout),
-    });
+    const url = `https://${domain}/.well-known/nostr.json?name=${name}`;
+    console.log(`Fetching ${url}`);
+
+    const res = await fetch(url, { signal });
+    signal.removeEventListener('abort', handleAbort);
+    console.log(`NIP-05: successfully fetched @${name}@${domain}}`);
 
     const { names } = nostrJsonSchema.parse(await res.json());
+    const pubkey = names[name] || null;
+    console.log(`NIP-05: @${name}@${domain} is ${pubkey}`);
 
-    return names[name] || null;
+    return pubkey;
   } catch (_e) {
     return null;
   }
