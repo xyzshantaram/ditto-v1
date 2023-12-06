@@ -1,5 +1,5 @@
 import { Conf } from '@/config.ts';
-import '@/cron.ts';
+// import '@/cron.ts';
 import { type User } from '@/db/users.ts';
 import {
   type Context,

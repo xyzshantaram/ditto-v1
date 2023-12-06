@@ -1,40 +1,27 @@
-import { Comlink } from '@/deps.ts';
+import { Pool, spawn } from '@/deps.ts';
 
 import type { SqliteWorker as _SqliteWorker } from './sqlite.worker.ts';
 import type { CompiledQuery, QueryResult } from '@/deps.ts';
 
 class SqliteWorker {
-  #worker: Worker;
-  #client: ReturnType<typeof Comlink.wrap<typeof _SqliteWorker>>;
-  #ready: Promise<void>;
+  #pool: Pool<Awaited<ReturnType<typeof spawn<typeof _SqliteWorker>>>>;
 
   constructor() {
-    this.#worker = new Worker(new URL('./sqlite.worker.ts', import.meta.url).href, { type: 'module' });
-    this.#client = Comlink.wrap<typeof _SqliteWorker>(this.#worker);
-
-    this.#ready = new Promise<void>((resolve) => {
-      const handleEvent = (event: MessageEvent) => {
-        if (event.data[0] === 'ready') {
-          this.#worker.removeEventListener('message', handleEvent);
-          resolve();
-        }
-      };
-      this.#worker.addEventListener('message', handleEvent);
-    });
-  }
-
-  async open(path: string): Promise<void> {
-    await this.#ready;
-    return this.#client.open(path);
+    this.#pool = Pool(
+      () =>
+        spawn<typeof _SqliteWorker>(
+          new Worker(new URL('./sqlite.worker.ts', import.meta.url).href, { type: 'module' }),
+        ),
+      { size: 4 },
+    );
   }
 
   async executeQuery<R>(query: CompiledQuery): Promise<QueryResult<R>> {
-    await this.#ready;
-    return this.#client.executeQuery(query) as Promise<QueryResult<R>>;
+    return await this.#pool.queue((worker) => worker.executeQuery(query) as Promise<QueryResult<R>>);
   }
 
   destroy(): Promise<void> {
-    return this.#client.destroy();
+    return this.#pool.terminate();
   }
 }
 

@@ -1,13 +1,17 @@
 /// <reference lib="webworker" />
 
-import { Comlink, type CompiledQuery, DenoSqlite3, type QueryResult } from '@/deps.ts';
+import { Conf } from '@/config.ts';
+import { type CompiledQuery, DenoSqlite3, expose, type QueryResult } from '@/deps.ts';
 
-let db: DenoSqlite3 | undefined;
+const db: DenoSqlite3 = new DenoSqlite3(Conf.dbPath);
+
+db.exec(`
+PRAGMA synchronous = normal;
+PRAGMA temp_store = memory;
+PRAGMA mmap_size = ${Conf.sqlite.mmapSize};
+`);
 
 export const SqliteWorker = {
-  open(path: string): void {
-    db = new DenoSqlite3(path);
-  },
   executeQuery<R>({ sql, parameters }: CompiledQuery): QueryResult<R> {
     if (!db) throw new Error('Database not open');
     return {
@@ -21,6 +25,4 @@ export const SqliteWorker = {
   },
 };
 
-Comlink.expose(SqliteWorker);
-
-self.postMessage(['ready']);
+expose(SqliteWorker);

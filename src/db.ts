@@ -2,8 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { FileMigrationProvider, Kysely, Migrator, PolySqliteDialect } from '@/deps.ts';
-import { Conf } from '@/config.ts';
-import { getPragma, setPragma } from '@/pragma.ts';
+import { getPragma } from '@/pragma.ts';
 import SqliteWorker from '@/workers/sqlite.ts';
 
 interface DittoDB {
@@ -58,20 +57,12 @@ interface UnattachedMediaRow {
 }
 
 const sqliteWorker = new SqliteWorker();
-await sqliteWorker.open(Conf.dbPath);
 
 const db = new Kysely<DittoDB>({
   dialect: new PolySqliteDialect({
     database: sqliteWorker,
   }),
 });
-
-// Set PRAGMA values.
-await Promise.all([
-  setPragma(db, 'synchronous', 'normal'),
-  setPragma(db, 'temp_store', 'memory'),
-  setPragma(db, 'mmap_size', Conf.sqlite.mmapSize),
-]);
 
 // Log out PRAGMA values for debugging.
 ['journal_mode', 'synchronous', 'temp_store', 'mmap_size'].forEach(async (pragma) => {
