@@ -12,7 +12,6 @@ class SqliteWorker {
         spawn<typeof _SqliteWorker>(
           new Worker(new URL('./sqlite.worker.ts', import.meta.url).href, { type: 'module' }),
         ),
-      { size: 4 },
     );
   }
 
