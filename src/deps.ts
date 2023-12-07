@@ -79,7 +79,7 @@ export { Machina } from 'https://gitlab.com/soapbox-pub/nostr-machina/-/raw/08a1
 export * as Sentry from 'https://deno.land/x/sentry@7.78.0/index.js';
 export { sentry as sentryMiddleware } from 'npm:@hono/sentry@^1.0.0';
 export * as Comlink from 'npm:comlink@^4.4.1';
-export { Pool, spawn } from 'npm:threads@^1.7.0';
-export { expose } from 'npm:threads@^1.7.0/worker';
+export { Pool, spawn } from 'npm:@soapbox.pub/threads@^1.7.5';
+export { expose } from 'npm:@soapbox.pub/threads@^1.7.5/worker';
 
 export type * as TypeFest from 'npm:type-fest@^4.3.0';
