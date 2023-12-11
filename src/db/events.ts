@@ -157,11 +157,17 @@ function getFilterQuery(filter: DittoFilter): EventQuery {
           eb
             .selectFrom('events')
             .selectAll()
+            .select([
+              eb.fn.agg('row_number')
+                .over((ob) => ob.partitionBy('pubkey').orderBy('created_at', 'desc'))
+                .as('rn'),
+            ])
             .where('kind', '=', 0)
-            .orderBy('created_at', 'desc')
-            .groupBy('pubkey')
             .as('authors'),
-        (join) => join.onRef('authors.pubkey', '=', 'events.pubkey'),
+        (join) =>
+          join
+            .onRef('authors.pubkey', '=', 'events.pubkey')
+            .on('authors.rn', '=', 1),
       )
       .select([
         'authors.id as author_id',
