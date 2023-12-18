@@ -63,6 +63,8 @@ type ClientCOUNT = z.infer<typeof clientCountSchema>;
 /** Client message to a Nostr relay. */
 type ClientMsg = z.infer<typeof clientMsgSchema>;
 
+const relayEventSchema = z.tuple([z.literal('EVENT'), z.string().min(1), eventSchema]);
+
 /** Kind 0 content schema. */
 const metaContentSchema = z.object({
   name: z.string().optional().catch(undefined),
@@ -134,6 +136,7 @@ export {
   mediaDataSchema,
   metaContentSchema,
   nostrIdSchema,
+  relayEventSchema,
   relayInfoDocSchema,
   signedEventSchema,
 };
