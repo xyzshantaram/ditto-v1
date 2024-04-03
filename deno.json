@@ -1,6 +1,11 @@
 {
-  "$schema": "https://deno.land/x/deno@v1.32.3/cli/schemas/config-file.v1.json",
+  "$schema": "https://deno.land/x/deno@v1.41.0/cli/schemas/config-file.v1.json",
   "lock": false,
+  "name": "@soapbox/ditto",
+  "version": "0.2.0",
+  "exports": {
+    "./server": "./src/server.ts"
+  },
   "tasks": {
     "start": "deno run -A --unstable-ffi src/server.ts",
     "dev": "deno run -A --unstable-ffi --watch src/server.ts",
