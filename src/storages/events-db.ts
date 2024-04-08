@@ -341,15 +341,10 @@ class EventsDB implements NStore {
     if (!filters.length) return Promise.resolve({ count: 0, approximate: false });
 
     this.#debug('COUNT', JSON.stringify(filters));
-    const query = this.getEventsQuery(filters);
-
-    const [{ count }] = await query
-      .clearSelect()
-      .select((eb) => eb.fn.count('id').as('count'))
-      .execute();
+    const results = await this.query(filters);
 
     return {
-      count: Number(count),
+      count: results.length,
       approximate: false,
     };
   }
