@@ -67,6 +67,8 @@ async function renderStatus(event: DittoEvent, viewerPubkey?: string) {
 
   const media = [...mediaLinks, ...mediaTags];
 
+  const quoteId = event.tags.find(([name]) => name === 'q')?.[1];
+
   return {
     id: event.id,
     account,
@@ -97,6 +99,7 @@ async function renderStatus(event: DittoEvent, viewerPubkey?: string) {
     uri: Conf.external(note),
     url: Conf.external(note),
     zapped: Boolean(zapEvent),
+    quote: !quoteId ? null : quoteId,
   };
 }
 
