@@ -68,6 +68,7 @@ async function renderStatus(event: DittoEvent, viewerPubkey?: string) {
   const media = [...mediaLinks, ...mediaTags];
 
   const quoteId = event.tags.find(([name]) => name === 'q')?.[1];
+  const [quoteStatus, depth] = await renderQuoteRepost(quoteId, 1);
 
   return {
     id: event.id,
@@ -99,8 +100,31 @@ async function renderStatus(event: DittoEvent, viewerPubkey?: string) {
     uri: Conf.external(note),
     url: Conf.external(note),
     zapped: Boolean(zapEvent),
-    quote: !quoteId ? null : quoteId,
+    quote: depth < 1 && quoteStatus
+      ? quoteStatus
+      : depth > 0 && quoteStatus
+      ? (await renderQuoteRepost(quoteId, depth - 1))[0]
+      : null,
   };
+}
+
+async function renderQuoteRepost(quoteId: string | undefined, depth: number): Promise<[any, number]> {
+  if (depth < 1) return [null, depth];
+
+  if (!quoteId) return [null, depth];
+
+  const quottedEvent = await getEvent(quoteId, { kind: 1 });
+  if (!quottedEvent) return [null, depth];
+
+  if (depth === 1) {
+    quottedEvent.tags = quottedEvent.tags.filter(([name]) => name !== 'q');
+  }
+
+  const status = await renderStatus(quottedEvent);
+  if (!status) return [null, depth];
+
+  depth--;
+  return [status, depth];
 }
 
 async function renderReblog(event: DittoEvent) {
