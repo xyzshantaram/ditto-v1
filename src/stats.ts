@@ -22,6 +22,9 @@ async function updateStats(event: NostrEvent) {
     prev = await maybeGetPrev(event);
     if (!prev || event.created_at >= prev.created_at) {
       queries.push(updateFollowingCountQuery(event));
+
+      const followersQuery = await updateFollowersCountQuery(event);
+      if (followersQuery) queries.push(followersQuery);
     }
   }
 
@@ -176,6 +179,30 @@ function updateFollowingCountQuery({ pubkey, tags }: NostrEvent) {
       oc
         .column('pubkey')
         .doUpdateSet({ following_count })
+    );
+}
+
+async function updateFollowersCountQuery({ tags }: NostrEvent) {
+  const userThatHasFollowersPub = tags.find(([name]) => name === 'p')?.[1];
+  if (!userThatHasFollowersPub) return;
+
+  const result = await eventsDB.query([{ kinds: [3], '#p': [userThatHasFollowersPub] }], {
+    signal: AbortSignal.timeout(1000),
+  });
+
+  if (result.length <= 0) return;
+
+  return db.insertInto('author_stats')
+    .values({
+      pubkey: userThatHasFollowersPub,
+      following_count: 0,
+      followers_count: result.length,
+      notes_count: 0,
+    })
+    .onConflict((oc) =>
+      oc
+        .column('pubkey')
+        .doUpdateSet({ followers_count: result.length })
     );
 }
 
