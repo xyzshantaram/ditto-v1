@@ -21,10 +21,14 @@ async function updateStats(event: NostrEvent) {
   if (event.kind === 3) {
     prev = await maybeGetPrev(event);
     if (!prev || event.created_at >= prev.created_at) {
-      queries.push(updateFollowingCountQuery(event));
+      try {
+        queries.push(await updateFollowingCountQuery(event)); // We know updateFollowingCountQuery always worked, see what happens after we make it an async function
+      } catch (e) {
+        console.log('ERROR', e);
+      }
 
-      const followersQuery = await updateFollowersCountQuery(event);
-      if (followersQuery) queries.push(followersQuery);
+      //const followersQuery = await updateFollowersCountQuery(event);
+      //if (followersQuery) queries.push(followersQuery);
     }
   }
 
@@ -161,7 +165,9 @@ async function maybeGetPrev(event: NostrEvent): Promise<NostrEvent> {
 }
 
 /** Set the following count to the total number of unique "p" tags in the follow list. */
-function updateFollowingCountQuery({ pubkey, tags }: NostrEvent) {
+async function updateFollowingCountQuery({ pubkey, tags }: NostrEvent) {
+  await eventsDB.query([{ kinds: [0] }]);
+
   const following_count = new Set(
     tags
       .filter(([name]) => name === 'p')
