@@ -34,7 +34,7 @@ export const cache = (opts: CacheOpts): MiddlewareHandler => {
       if (response && expired) {
         debug('Serving stale cache, rebuilding', c.req.url);
         const stale = response.clone();
-        updateCache();
+        await updateCache();
         await new Promise((resolve) => setTimeout(resolve, 0));
         return stale;
       }
