@@ -139,11 +139,16 @@ async function hydrateRepostEvents(opts: Omit<HydrateEventOpts, 'relations'>): P
       const originalPostEvent = results.find((event) => event.id === originalPostId);
       if (!originalPostEvent) continue;
 
+      const relations: DittoRelation[] = ['author', 'event_stats'];
+
+      const originalPostBeingQuoteRepostedId = originalPostEvent.tags.find(([name]) => name === 'q')?.[1];
+      if (originalPostBeingQuoteRepostedId) relations.push('quote_repost');
+
       await hydrateEvents({
         events: [originalPostEvent],
         storage: storage,
         signal: signal,
-        relations: ['author', 'event_stats'],
+        relations: relations,
       });
       event.repost = originalPostEvent;
     }
