@@ -40,8 +40,12 @@ function getMicroFilters(event: NostrEvent): MicroFilter[] {
 
 /** Microfilter schema. */
 const microFilterSchema = z.union([
-  z.object({ ids: z.tuple([nostrIdSchema]) }).strict(),
-  z.object({ kinds: z.tuple([z.literal(0)]), authors: z.tuple([nostrIdSchema]) }).strict(),
+  z.object({ ids: z.tuple([nostrIdSchema]), limit: z.number().optional() }).strict(),
+  z.object({
+    kinds: z.tuple([z.literal(0)]),
+    authors: z.tuple([nostrIdSchema]),
+    limit: z.number().optional(),
+  }).strict(),
 ]);
 
 /** Checks whether the filter is a microfilter. */
