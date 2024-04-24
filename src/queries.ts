@@ -51,11 +51,22 @@ const getFollows = async (pubkey: string, signal?: AbortSignal): Promise<NostrEv
   return event;
 };
 
-/** Get pubkeys the user follows. */
+/** Get pubkeys the user follows that are not blocked. */
 async function getFollowedPubkeys(pubkey: string, signal?: AbortSignal): Promise<string[]> {
   const event = await getFollows(pubkey, signal);
   if (!event) return [];
-  return [...getTagSet(event.tags, 'p')];
+  const followedPubkeys = getTagSet(event.tags, 'p');
+
+  const [blockedUsersEvent] = await eventsDB.query([{ authors: [pubkey], kinds: [10000], limit: 1 }], {
+    limit: 1,
+    signal,
+  });
+  if (blockedUsersEvent) {
+    const blockedPubkeys = getTagSet(blockedUsersEvent.tags, 'p');
+    blockedPubkeys.forEach((blockedPub) => followedPubkeys.delete(blockedPub));
+  }
+
+  return [...followedPubkeys];
 }
 
 /** Get pubkeys the user follows, including the user's own pubkey. */
