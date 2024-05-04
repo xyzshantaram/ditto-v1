@@ -1,10 +1,8 @@
 import { NostrEvent, NSchema as n } from '@nostrify/nostrify';
 import { LNURL } from '@nostrify/nostrify/ln';
 import Debug from '@soapbox/stickynotes/debug';
-import { sql } from 'kysely';
 
 import { Conf } from '@/config.ts';
-import { db } from '@/db.ts';
 import { deleteAttachedMedia } from '@/db/unattached-media.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { isEphemeralKind } from '@/kinds.ts';
@@ -20,6 +18,7 @@ import { verifyEventWorker } from '@/workers/verify.ts';
 import { AdminSigner } from '@/signers/AdminSigner.ts';
 import { lnurlCache } from '@/utils/lnurl.ts';
 import { nip05Cache } from '@/utils/nip05.ts';
+import { PubkeyDomain } from '@/interfaces/PubkeyDomain.ts';
 
 const debug = Debug('ditto:pipeline');
 
@@ -74,17 +73,15 @@ async function encounterEvent(event: NostrEvent, signal: AbortSignal): Promise<b
   return !!existing;
 }
 
+const kv = await Deno.openKv();
+
 /** Hydrate the event with the user, if applicable. */
 async function hydrateEvent(event: DittoEvent, signal: AbortSignal): Promise<void> {
   await hydrateEvents({ events: [event], storage: Storages.db, signal });
-
-  const domain = await db
-    .selectFrom('pubkey_domains')
-    .select('domain')
-    .where('pubkey', '=', event.pubkey)
-    .executeTakeFirst();
-
-  event.author_domain = domain?.domain;
+  const res = await kv.get<PubkeyDomain>(['domain_for_pubkey', event.pubkey]);
+  if (res.value) {
+    event.author_domain = res.value.domain;
+  }
 }
 
 /** Maybe store the event, if eligible. */
@@ -129,15 +126,12 @@ async function parseMetadata(event: NostrEvent, signal: AbortSignal): Promise<vo
   // Track pubkey domain.
   try {
     const { domain } = parseNip05(nip05);
-
-    await sql`
-    INSERT INTO pubkey_domains (pubkey, domain, last_updated_at)
-    VALUES (${pubkey}, ${domain}, ${event.created_at})
-    ON CONFLICT(pubkey) DO UPDATE SET
-      domain = excluded.domain,
-      last_updated_at = excluded.last_updated_at
-    WHERE excluded.last_updated_at > pubkey_domains.last_updated_at
-    `.execute(db);
+    const { created_at } = event;
+    const existing = await kv.get<PubkeyDomain>(['domain_for_pubkey', pubkey]);
+    if (!existing.value || (existing.value && existing.value.updated_at < created_at)) {
+      await kv.set(['domain_for_pubkey', pubkey], { domain, updated_at: created_at });
+      await kv.set(['pubkeys_for_domain', domain, pubkey], true);
+    }
   } catch (_e) {
     // do nothing
   }
