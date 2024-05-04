@@ -5,7 +5,6 @@ export interface DittoTables {
   unattached_media: UnattachedMediaRow;
   author_stats: AuthorStatsRow;
   event_stats: EventStatsRow;
-  pubkey_domains: PubkeyDomainRow;
 }
 
 interface AuthorStatsRow {
@@ -50,10 +49,4 @@ interface UnattachedMediaRow {
   url: string;
   data: string;
   uploaded_at: number;
-}
-
-interface PubkeyDomainRow {
-  pubkey: string;
-  domain: string;
-  last_updated_at: number;
 }
