@@ -11,6 +11,8 @@ import { purifyEvent } from '@/storages/hydrate.ts';
 import { isNostrId, isURL } from '@/utils.ts';
 import { abortError } from '@/utils/abort.ts';
 
+const kv = await Deno.openKv();
+
 /** Function to decide whether or not to index a tag. */
 type TagCondition = ({ event, count, value }: {
   event: DittoEvent;
@@ -235,26 +237,21 @@ class EventsDB implements NStore {
           typeof t === 'object' && t.key === 'domain'
         ) as { key: 'domain'; value: string } | undefined)?.value;
 
+        const pubkeys = [];
         if (domain) {
-          const query = this.#db
-            .selectFrom('pubkey_domains')
-            .select('pubkey')
-            .where('domain', '=', domain);
-
-          if (filter.authors) {
-            query.where('pubkey', 'in', filter.authors);
+          for await (const rec of kv.list<string>({ prefix: ['pubkeys_for_domain', domain] })) {
+            const pubkey = rec.key[2] as string;
+            if (filter.authors && !filter.authors.includes(pubkey)) {
+              continue;
+            }
+            pubkeys.push(pubkey);
           }
-
-          const pubkeys = await query
-            .execute()
-            .then((rows) =>
-              rows.map((row) => row.pubkey)
-            );
-
           filter.authors = pubkeys;
         }
 
-        filter.search = tokens.filter((t) => typeof t === 'string').join(' ');
+        filter.search = tokens.filter((t) =>
+          typeof t === 'string'
+        ).join(' ');
       }
     }
 

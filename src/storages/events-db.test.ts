@@ -5,8 +5,10 @@ import event0 from '~/fixtures/events/event-0.json' with { type: 'json' };
 import event1 from '~/fixtures/events/event-1.json' with { type: 'json' };
 
 import { EventsDB } from '@/storages/events-db.ts';
+import { PubkeyDomain } from '@/interfaces/PubkeyDomain.ts';
 
 const eventsDB = new EventsDB(db);
+const kv = await Deno.openKv();
 
 Deno.test('count filters', async () => {
   assertEquals((await eventsDB.count([{ kinds: [1] }])).count, 0);
@@ -34,10 +36,14 @@ Deno.test('query events with domain search filter', async () => {
   assertEquals(await eventsDB.query([{ search: 'domain:localhost:8000' }]), []);
   assertEquals(await eventsDB.query([{ search: '' }]), [event1]);
 
-  await db
-    .insertInto('pubkey_domains')
-    .values({ pubkey: event1.pubkey, domain: 'localhost:8000', last_updated_at: event1.created_at })
-    .execute();
+  /* ALWAYS WRITE THE TYPE OUT WITH THE ENTRY! */
+  const entry: PubkeyDomain = {
+    updated_at: event1.created_at,
+    domain: 'localhost:8000',
+  };
+
+  await kv.set(['domain_for_pubkey', event1.pubkey], entry);
+  await kv.set(['pubkeys_for_domain', 'localhost:8000', event1.pubkey], true);
 
   assertEquals(await eventsDB.query([{ kinds: [1], search: 'domain:localhost:8000' }]), [event1]);
   assertEquals(await eventsDB.query([{ kinds: [1], search: 'domain:example.com' }]), []);
