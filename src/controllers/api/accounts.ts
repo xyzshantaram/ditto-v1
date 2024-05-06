@@ -47,7 +47,7 @@ const createAccountController: AppController = async (c) => {
 const verifyCredentialsController: AppController = async (c) => {
   const pubkey = c.get('pubkey')!;
 
-  const event = await getAuthor(pubkey, { relations: ['author_stats'] });
+  const [event] = await Storages.db.query([{ kinds: [0], authors: [pubkey], limit: 1 }]);
   if (event) {
     return c.json(await renderAccount(event, { withSource: true }));
   } else {
