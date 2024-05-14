@@ -120,7 +120,6 @@ app.use('/nodeinfo/*', logger(debug));
 app.use('/oauth/*', logger(debug));
 
 app.get('/api/v1/streaming', streamingController);
-app.get('/api/v1/streaming/', streamingController);
 app.get('/relay', relayController);
 
 app.use('*', csp(), cors({ origin: '*', exposeHeaders: ['link'] }), auth19, auth98(), storeMiddleware);
