@@ -34,7 +34,7 @@ async function renderAccount(
   let websiteUrl;
   try {
     // See if 'website' is a valid url
-    new URL(website);
+    new URL(website as string);
     websiteUrl = website;
   } catch (_) {
     try {
