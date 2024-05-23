@@ -31,6 +31,23 @@ async function renderAccount(
     website,
   } = n.json().pipe(n.metadata()).catch({}).parse(event.content);
 
+  let websiteUrl;
+  try {
+    // See if 'website' is a valid url
+    new URL(website);
+    websiteUrl = website;
+  } catch (_) {
+    try {
+      // 'website' could still be a valid url
+      // try adding a 'https' prefix to 'website'
+      new URL('https' + website);
+      websiteUrl = 'https' + website;
+    } catch (_) {
+      // 'website' is not a valid url even with 'https' prefix
+      websiteUrl = '';
+    }
+  }
+
   const npub = nip19.npubEncode(pubkey);
   const parsed05 = await parseAndVerifyNip05(nip05, pubkey);
   const role = event.user?.tags.find(([name]) => name === 'role')?.[1] ?? 'user';
@@ -86,7 +103,7 @@ async function renderAccount(
       pubkey,
       lud16,
     },
-    website,
+    website: websiteUrl,
   };
 }
 
