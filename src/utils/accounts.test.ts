@@ -2,34 +2,21 @@ import { assertEquals } from '@std/assert';
 
 import { sanitizeWebsite } from '@/utils/accounts.ts';
 
-type testSanatizeWbsite = {
-  url: string | undefined;
-  expectedOutput: string | undefined;
-};
-
 Deno.test('Sanitizes a URL to include an https prefix', () => {
-  const testCases: testSanatizeWbsite[] = [
-    { url: 'https://alexgleason.me/', expectedOutput: 'https://alexgleason.me/' },
-    { url: 'http://alexgleason.me/', expectedOutput: 'http://alexgleason.me/' },
-    { url: 'patrickdosreis.com', expectedOutput: 'https://patrickdosreis.com' },
+  assertEquals(sanitizeWebsite('https://alexgleason.me/'), 'https://alexgleason.me/');
+  assertEquals(sanitizeWebsite('http://alexgleason.me/'), 'http://alexgleason.me/');
+  assertEquals(sanitizeWebsite('patrickdosreis.com'), 'https://patrickdosreis.com');
+  // This is not a valid URL,
+  // however, the URL() constructor does not check for top level domain
+  // to prevent compatibility issues we'll allow this to pass as a URL
+  assertEquals(sanitizeWebsite('açsldkjfasd'), 'https://açsldkjfasd');
+  assertEquals(sanitizeWebsite('https/'), 'https://https/');
+  assertEquals(sanitizeWebsite('----------'), 'https://----------');
 
-    // This is not a valid URL,
-    // however, the URL() constructor does not check for top level domain
-    // to prevent compatibility issues we'll allow this to pass as a URL
-    { url: 'açsldkjfasd', expectedOutput: 'https://açsldkjfasd' },
-    { url: 'https/', expectedOutput: 'https://https/' },
-    { url: '----------', expectedOutput: 'https://----------' },
-
-    { url: 'https', expectedOutput: undefined },
-    { url: 'https://', expectedOutput: undefined },
-    { url: 'https:/', expectedOutput: undefined },
-    { url: 'http://', expectedOutput: undefined },
-    { url: 'http:/', expectedOutput: undefined },
-    { url: '    ', expectedOutput: undefined },
-    { url: undefined, expectedOutput: undefined },
-  ];
-
-  for (const testCase of testCases) {
-    assertEquals(sanitizeWebsite(testCase.url), testCase.expectedOutput);
-  }
+  assertEquals(sanitizeWebsite('https'), 'https://https');
+  assertEquals(sanitizeWebsite('https:/'), 'https://https:/');
+  assertEquals(sanitizeWebsite('http://'), 'https://http://');
+  assertEquals(sanitizeWebsite('http:/'), 'https://http:/');
+  assertEquals(sanitizeWebsite('    '), undefined);
+  assertEquals(sanitizeWebsite(undefined), undefined);
 });
