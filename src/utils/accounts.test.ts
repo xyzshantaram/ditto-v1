@@ -7,7 +7,7 @@ type testSanatizeWbsite = {
   expectedOutput: string | undefined;
 };
 
-Deno.test('throws a RelayError when inserting an event deleted by a user', () => {
+Deno.test('Sanitizes a URL to include an https prefix', () => {
   const testCases: testSanatizeWbsite[] = [
     { url: 'https://alexgleason.me/', expectedOutput: 'https://alexgleason.me/' },
     { url: 'http://alexgleason.me/', expectedOutput: 'http://alexgleason.me/' },
