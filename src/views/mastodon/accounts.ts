@@ -87,7 +87,7 @@ async function renderAccount(
       pubkey,
       lud16,
     },
-    website: sanitizeWebsite(website) ?? '',
+    website: sanitizeWebsite(website as string) ?? '',
   };
 }
 
