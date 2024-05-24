@@ -8,6 +8,7 @@ import { getLnurl } from '@/utils/lnurl.ts';
 import { nip05Cache } from '@/utils/nip05.ts';
 import { Nip05, nostrDate, nostrNow, parseNip05 } from '@/utils.ts';
 import { renderEmojis } from '@/views/mastodon/emojis.ts';
+import { sanitizeWebsite } from '@/utils/accounts.ts';
 
 interface ToAccountOpts {
   withSource?: boolean;
@@ -30,23 +31,6 @@ async function renderAccount(
     lud16,
     website,
   } = n.json().pipe(n.metadata()).catch({}).parse(event.content);
-
-  let websiteUrl;
-  try {
-    // See if 'website' is a valid url
-    new URL(website as string);
-    websiteUrl = website;
-  } catch (_) {
-    try {
-      // 'website' could still be a valid url
-      // try adding a 'https' prefix to 'website'
-      new URL('https' + website);
-      websiteUrl = 'https' + website;
-    } catch (_) {
-      // 'website' is not a valid url even with 'https' prefix
-      websiteUrl = '';
-    }
-  }
 
   const npub = nip19.npubEncode(pubkey);
   const parsed05 = await parseAndVerifyNip05(nip05, pubkey);
@@ -103,7 +87,7 @@ async function renderAccount(
       pubkey,
       lud16,
     },
-    website: websiteUrl,
+    website: sanitizeWebsite(website) ?? '',
   };
 }
 
