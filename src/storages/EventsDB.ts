@@ -1,6 +1,6 @@
 // deno-lint-ignore-file require-await
 
-import { NDatabase, NIP50, NKinds, NostrEvent, NostrFilter, NSchema as n, NStore } from '@nostrify/nostrify';
+import { NDatabase, NIP50, NKinds, NostrEvent, NostrFilter, NSchema as n, NStore, NDatabaseSearchIndex } from '@nostrify/nostrify';
 import { Stickynotes } from '@soapbox/stickynotes';
 import { Kysely } from 'kysely';
 
@@ -12,6 +12,9 @@ import { purifyEvent } from '@/storages/hydrate.ts';
 import { isNostrId, isURL } from '@/utils.ts';
 import { abortError } from '@/utils/abort.ts';
 import { getTagSet } from '@/utils/tags.ts';
+import { DittoDB } from '@/db/DittoDB.ts';
+
+const db = await DittoDB.getInstance();
 
 /** Function to decide whether or not to index a tag. */
 type TagCondition = ({ event, count, value }: {
@@ -165,16 +168,30 @@ class EventsDB implements NStore {
   }
 
   /** Build a search index from the event. */
-  static searchText(event: NostrEvent): string {
+  static async searchText(event: NostrEvent): Promise<NDatabaseSearchIndex | undefined> {
+    const res = await db.selectFrom('author_stats')
+      .select('author_stats.followers_count')
+      .where('pubkey', '=', event.pubkey)
+      .executeTakeFirst();
+
     switch (event.kind) {
       case 0:
-        return EventsDB.buildUserSearchContent(event);
+        return {
+          idx: EventsDB.buildUserSearchContent(event),
+          ranking: res?.followers_count || 0
+        }
       case 1:
-        return event.content;
+        return {
+          idx: event.content,
+          ranking: res?.followers_count || 0
+        }
       case 30009:
-        return EventsDB.buildTagsSearchContent(event.tags.filter(([t]) => t !== 'alt'));
+        return {
+          ranking: 0,
+          idx: EventsDB.buildTagsSearchContent(event.tags.filter(([t]) => t !== 'alt'))
+        }
       default:
-        return '';
+        return;
     }
   }
 

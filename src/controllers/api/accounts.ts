@@ -126,7 +126,7 @@ const accountSearchController: AppController = async (c) => {
 
   const [event, events] = await Promise.all([
     lookupAccount(query),
-    store.query([{ kinds: [0], search: query, limit }], { signal }),
+    store.query([{ kinds: [0], search: query + '$$ditto_order:ranked', limit }], { signal }),
   ]);
 
   const results = await hydrateEvents({
