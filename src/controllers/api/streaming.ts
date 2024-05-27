@@ -49,7 +49,7 @@ const streamingController: AppController = (c) => {
     return c.json({ error: 'Invalid access token' }, 401);
   }
 
-  const { socket, response } = Deno.upgradeWebSocket(c.req.raw, { protocol: token });
+  const { socket, response } = Deno.upgradeWebSocket(c.req.raw, { protocol: token, idleTimeout: 30 });
 
   function send(name: string, payload: object) {
     if (socket.readyState === WebSocket.OPEN) {
@@ -69,8 +69,8 @@ const streamingController: AppController = (c) => {
     if (!filter) return;
 
     try {
+      const db = await Storages.db();
       const pubsub = await Storages.pubsub();
-      const optimizer = await Storages.optimizer();
 
       for await (const msg of pubsub.req([filter], { signal: controller.signal })) {
         if (msg[0] === 'EVENT') {
@@ -86,7 +86,7 @@ const streamingController: AppController = (c) => {
 
           await hydrateEvents({
             events: [event],
-            store: optimizer,
+            store: db,
             signal: AbortSignal.timeout(1000),
           });
 

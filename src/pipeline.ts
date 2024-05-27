@@ -3,14 +3,15 @@ import { LNURL } from '@nostrify/nostrify/ln';
 import { PipePolicy } from '@nostrify/nostrify/policies';
 import Debug from '@soapbox/stickynotes/debug';
 import { sql } from 'kysely';
+import { LRUCache } from 'lru-cache';
 
 import { Conf } from '@/config.ts';
 import { DittoDB } from '@/db/DittoDB.ts';
 import { deleteAttachedMedia } from '@/db/unattached-media.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { DVM } from '@/pipeline/DVM.ts';
+import { MuteListPolicy } from '@/policies/MuteListPolicy.ts';
 import { RelayError } from '@/RelayError.ts';
-import { updateStats } from '@/stats.ts';
 import { hydrateEvents, purifyEvent } from '@/storages/hydrate.ts';
 import { Storages } from '@/storages.ts';
 import { eventAge, nostrDate, nostrNow, parseNip05, Time } from '@/utils.ts';
@@ -21,9 +22,8 @@ import { verifyEventWorker } from '@/workers/verify.ts';
 import { AdminSigner } from '@/signers/AdminSigner.ts';
 import { lnurlCache } from '@/utils/lnurl.ts';
 import { nip05Cache } from '@/utils/nip05.ts';
+import { updateStats } from '@/utils/stats.ts';
 import { getTagSet } from '@/utils/tags.ts';
-
-import { MuteListPolicy } from '@/policies/MuteListPolicy.ts';
 
 const debug = Debug('ditto:pipeline');
 
@@ -33,7 +33,7 @@ const debug = Debug('ditto:pipeline');
  */
 async function handleEvent(event: DittoEvent, signal: AbortSignal): Promise<void> {
   if (!(await verifyEventWorker(event))) return;
-  if (await encounterEvent(event, signal)) return;
+  if (encounterEvent(event)) return;
   debug(`NostrEvent<${event.kind}> ${event.id}`);
 
   if (event.kind !== 24133) {
@@ -47,7 +47,6 @@ async function handleEvent(event: DittoEvent, signal: AbortSignal): Promise<void
     parseMetadata(event, signal),
     DVM.event(event),
     trackHashtags(event),
-    fetchRelatedEvents(event),
     processMedia(event),
     payZap(event, signal),
     streamOut(event),
@@ -90,17 +89,15 @@ async function policyFilter(event: NostrEvent): Promise<void> {
   }
 }
 
+const encounters = new LRUCache<string, true>({ max: 1000 });
+
 /** Encounter the event, and return whether it has already been encountered. */
-async function encounterEvent(event: NostrEvent, signal: AbortSignal): Promise<boolean> {
-  const cache = await Storages.cache();
-  const reqmeister = await Storages.reqmeister();
-
-  const [existing] = await cache.query([{ ids: [event.id], limit: 1 }]);
-
-  cache.event(event);
-  reqmeister.event(event, { signal });
-
-  return !!existing;
+function encounterEvent(event: NostrEvent): boolean {
+  const encountered = !!encounters.get(event.id);
+  if (!encountered) {
+    encounters.set(event.id, true);
+  }
+  return encountered;
 }
 
 /** Hydrate the event with the user, if applicable. */
@@ -121,8 +118,9 @@ async function hydrateEvent(event: DittoEvent, signal: AbortSignal): Promise<voi
 async function storeEvent(event: DittoEvent, signal?: AbortSignal): Promise<void> {
   if (NKinds.ephemeral(event.kind)) return;
   const store = await Storages.db();
+  const kysely = await DittoDB.getInstance();
 
-  await updateStats(event).catch(debug);
+  await updateStats({ event, store, kysely }).catch(debug);
   await store.event(event, { signal });
 }
 
@@ -180,31 +178,6 @@ async function trackHashtags(event: NostrEvent): Promise<void> {
     await TrendsWorker.addTagUsages(event.pubkey, tags, date);
   } catch (_e) {
     // do nothing
-  }
-}
-
-/** Queue related events to fetch. */
-async function fetchRelatedEvents(event: DittoEvent) {
-  const cache = await Storages.cache();
-  const reqmeister = await Storages.reqmeister();
-
-  if (!event.author) {
-    const signal = AbortSignal.timeout(3000);
-    reqmeister.query([{ kinds: [0], authors: [event.pubkey] }], { signal })
-      .then((events) => Promise.allSettled(events.map((event) => handleEvent(event, signal))))
-      .catch(() => {});
-  }
-
-  for (const [name, id] of event.tags) {
-    if (name === 'e') {
-      const { count } = await cache.count([{ ids: [id] }]);
-      if (!count) {
-        const signal = AbortSignal.timeout(3000);
-        reqmeister.query([{ ids: [id] }], { signal })
-          .then((events) => Promise.allSettled(events.map((event) => handleEvent(event, signal))))
-          .catch(() => {});
-      }
-    }
   }
 }
 

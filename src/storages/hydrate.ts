@@ -2,10 +2,9 @@ import { NostrEvent, NStore } from '@nostrify/nostrify';
 import { matchFilter } from 'nostr-tools';
 
 import { DittoDB } from '@/db/DittoDB.ts';
-import { type DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { DittoTables } from '@/db/DittoTables.ts';
 import { Conf } from '@/config.ts';
-import { refreshAuthorStatsDebounced } from '@/stats.ts';
+import { type DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { findQuoteTag } from '@/utils/tags.ts';
 
 interface HydrateOpts {
@@ -57,8 +56,6 @@ async function hydrateEvents(opts: HydrateOpts): Promise<DittoEvent[]> {
     events: await gatherEventStats(cache),
   };
 
-  refreshMissingAuthorStats(events, stats.authors);
-
   // Dedupe events.
   const results = [...new Map(cache.map((event) => [event.id, event])).values()];
 
@@ -70,12 +67,17 @@ async function hydrateEvents(opts: HydrateOpts): Promise<DittoEvent[]> {
 }
 
 /** Connect the events in list `b` to the DittoEvent fields in list `a`. */
-function assembleEvents(
+export function assembleEvents(
   a: DittoEvent[],
   b: DittoEvent[],
   stats: { authors: DittoTables['author_stats'][]; events: DittoTables['event_stats'][] },
 ): DittoEvent[] {
   const admin = Conf.pubkey;
+
+  const eventStats = stats.events.map((stat) => ({
+    ...stat,
+    reactions: JSON.parse(stat.reactions),
+  }));
 
   for (const event of a) {
     event.author = b.find((e) => matchFilter({ kinds: [0], authors: [event.pubkey] }, e));
@@ -120,7 +122,7 @@ function assembleEvents(
     }
 
     event.author_stats = stats.authors.find((stats) => stats.pubkey === event.pubkey);
-    event.event_stats = stats.events.find((stats) => stats.event_id === event.id);
+    event.event_stats = eventStats.find((stats) => stats.event_id === event.id);
   }
 
   return a;
@@ -270,22 +272,6 @@ async function gatherAuthorStats(events: DittoEvent[]): Promise<DittoTables['aut
   }));
 }
 
-function refreshMissingAuthorStats(events: NostrEvent[], stats: DittoTables['author_stats'][]) {
-  const pubkeys = new Set<string>(
-    events
-      .filter((event) => event.kind === 0)
-      .map((event) => event.pubkey),
-  );
-
-  const missing = pubkeys.difference(
-    new Set(stats.map((stat) => stat.pubkey)),
-  );
-
-  for (const pubkey of missing) {
-    refreshAuthorStatsDebounced(pubkey);
-  }
-}
-
 /** Collect event stats from the events. */
 async function gatherEventStats(events: DittoEvent[]): Promise<DittoTables['event_stats'][]> {
   const ids = new Set<string>(
@@ -309,8 +295,9 @@ async function gatherEventStats(events: DittoEvent[]): Promise<DittoTables['even
   return rows.map((row) => ({
     event_id: row.event_id,
     reposts_count: Math.max(0, row.reposts_count),
-    reactions_count: Math.max(0, row.reactions_count),
     replies_count: Math.max(0, row.replies_count),
+    reactions_count: Math.max(0, row.reactions_count),
+    reactions: row.reactions,
   }));
 }
 

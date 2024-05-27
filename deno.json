@@ -5,6 +5,7 @@
     "start": "deno run -A src/server.ts",
     "dev": "deno run -A --watch src/server.ts",
     "hook": "deno run --allow-read --allow-run --allow-write https://deno.land/x/deno_hooks@0.1.1/mod.ts",
+    "db:migrate": "deno run -A scripts/db-migrate.ts",
     "debug": "deno run -A --inspect src/server.ts",
     "test": "DATABASE_URL=\"sqlite://:memory:\" deno test -A --junit-path=./deno-test.xml",
     "check": "deno check src/server.ts",
@@ -21,7 +22,6 @@
     "@bradenmacdonald/s3-lite-client": "jsr:@bradenmacdonald/s3-lite-client@^0.7.4",
     "@db/sqlite": "jsr:@db/sqlite@^0.11.1",
     "@isaacs/ttlcache": "npm:@isaacs/ttlcache@^1.4.1",
-    "@lambdalisue/async": "jsr:@lambdalisue/async@^2.1.1",
     "@noble/secp256k1": "npm:@noble/secp256k1@^2.0.0",
     "@nostrify/nostrify": "jsr:@nostrify/nostrify@^0.23.0",
     "@sentry/deno": "https://deno.land/x/sentry@7.112.2/index.mjs",
@@ -57,7 +57,7 @@
     "tseep": "npm:tseep@^1.2.1",
     "type-fest": "npm:type-fest@^4.3.0",
     "unfurl.js": "npm:unfurl.js@^6.4.0",
-    "zod": "npm:zod@^3.23.5",
+    "zod": "npm:zod@^3.23.8",
     "~/fixtures/": "./fixtures/"
   },
   "lint": {

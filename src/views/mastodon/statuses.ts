@@ -39,10 +39,9 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
     ),
   ];
 
-  const db = await Storages.db();
-  const optimizer = await Storages.optimizer();
+  const store = await Storages.db();
 
-  const mentionedProfiles = await optimizer.query(
+  const mentionedProfiles = await store.query(
     [{ kinds: [0], authors: mentionedPubkeys, limit: mentionedPubkeys.length }],
   );
 
@@ -55,7 +54,7 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
       ),
       firstUrl ? unfurlCardCached(firstUrl) : null,
       viewerPubkey
-        ? await db.query([
+        ? await store.query([
           { kinds: [6], '#e': [event.id], authors: [viewerPubkey], limit: 1 },
           { kinds: [7], '#e': [event.id], authors: [viewerPubkey], limit: 1 },
           { kinds: [9734], '#e': [event.id], authors: [viewerPubkey], limit: 1 },
@@ -82,6 +81,15 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
 
   const media = imeta.length ? imeta : getMediaLinks(links);
 
+  /** Pleroma emoji reactions object. */
+  const reactions = Object.entries(event.event_stats?.reactions ?? {}).reduce((acc, [emoji, count]) => {
+    if (['+', '-'].includes(emoji)) return acc;
+    acc.push({ name: emoji, count, me: reactionEvent?.content === emoji });
+    return acc;
+  }, [] as { name: string; count: number; me: boolean }[]);
+
+  const expiresAt = new Date(Number(event.tags.find(([name]) => name === 'expiration')?.[1]) * 1000);
+
   return {
     id: event.id,
     account,
@@ -96,7 +104,7 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
     language: event.tags.find((tag) => tag[0] === 'lang')?.[1] || null,
     replies_count: event.event_stats?.replies_count ?? 0,
     reblogs_count: event.event_stats?.reposts_count ?? 0,
-    favourites_count: event.event_stats?.reactions_count ?? 0,
+    favourites_count: event.event_stats?.reactions['+'] ?? 0,
     favourited: reactionEvent?.content === '+',
     reblogged: Boolean(repostEvent),
     muted: false,
@@ -114,23 +122,22 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
     uri: Conf.external(note),
     url: Conf.external(note),
     zapped: Boolean(zapEvent),
+    pleroma: {
+      emoji_reactions: reactions,
+      expires_at: !isNaN(expiresAt.getTime()) ? expiresAt.toISOString() : undefined,
+    },
   };
 }
 
 async function renderReblog(event: DittoEvent, opts: RenderStatusOpts) {
   const { viewerPubkey } = opts;
-
-  const repostId = event.tags.find(([name]) => name === 'e')?.[1];
-  if (!repostId) return;
-
   if (!event.repost) return;
 
+  const status = await renderStatus(event, {}); // omit viewerPubkey intentionally
   const reblog = await renderStatus(event.repost, { viewerPubkey });
 
   return {
-    id: event.id,
-    account: event.author ? await renderAccount(event.author) : await accountFromPubkey(event.pubkey),
-    reblogged: true,
+    ...status,
     reblog,
   };
 }

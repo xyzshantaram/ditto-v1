@@ -19,16 +19,13 @@ export class DittoDB {
   }
 
   static async _getInstance(): Promise<Kysely<DittoTables>> {
-    const { databaseUrl } = Conf;
-
     let kysely: Kysely<DittoTables>;
 
-    switch (databaseUrl.protocol) {
-      case 'sqlite:':
+    switch (Conf.db.dialect) {
+      case 'sqlite':
         kysely = await DittoSQLite.getInstance();
         break;
-      case 'postgres:':
-      case 'postgresql:':
+      case 'postgres':
         kysely = await DittoPostgres.getInstance();
         break;
       default:
@@ -47,7 +44,7 @@ export class DittoDB {
       provider: new FileMigrationProvider({
         fs,
         path,
-        migrationFolder: new URL(import.meta.resolve('../db/migrations')).pathname,
+        migrationFolder: new URL(import.meta.resolve('./migrations')).pathname,
       }),
     });
 

@@ -66,8 +66,11 @@ const verifyCredentialsController: AppController = async (c) => {
     : await accountFromPubkey(pubkey, { withSource: true });
 
   if (settingsStore) {
-    const data = await signer.nip44!.decrypt(pubkey, settingsStore.content);
-    account.pleroma.settings_store = JSON.parse(data);
+    try {
+      account.pleroma.settings_store = JSON.parse(settingsStore.content);
+    } catch {
+      // Ignore
+    }
   }
 
   return c.json(account);
@@ -220,15 +223,15 @@ const accountStatusesController: AppController = async (c) => {
 const updateCredentialsSchema = z.object({
   display_name: z.string().optional(),
   note: z.string().optional(),
-  avatar: fileSchema.optional(),
-  header: fileSchema.optional(),
+  avatar: fileSchema.or(z.literal('')).optional(),
+  header: fileSchema.or(z.literal('')).optional(),
   locked: z.boolean().optional(),
   bot: z.boolean().optional(),
   discoverable: z.boolean().optional(),
-  nip05: z.string().optional(),
+  nip05: z.string().email().or(z.literal('')).optional(),
   pleroma_settings_store: z.unknown().optional(),
-  lud16: z.string().email().optional().catch(''),
-  website: z.string().url().optional().catch(''),
+  lud16: z.string().email().or(z.literal('')).optional(),
+  website: z.string().url().or(z.literal('')).optional(),
 });
 
 const updateCredentialsController: AppController = async (c) => {
@@ -252,6 +255,7 @@ const updateCredentialsController: AppController = async (c) => {
     nip05,
     lud16,
     website,
+    bot,
   } = result.data;
 
   const [avatar, header] = await Promise.all([
@@ -266,6 +270,13 @@ const updateCredentialsController: AppController = async (c) => {
   meta.nip05 = nip05 ?? meta.nip05;
   meta.lud16 = lud16 ?? meta.lud16;
   meta.website = website ?? meta.website;
+  meta.bot = bot ?? meta.bot;
+
+  if (avatarFile === '') delete meta.picture;
+  if (headerFile === '') delete meta.banner;
+  if (nip05 === '') delete meta.nip05;
+  if (lud16 === '') delete meta.lud16;
+  if (website === '') delete meta.website;
 
   const event = await createEvent({
     kind: 0,
@@ -280,7 +291,7 @@ const updateCredentialsController: AppController = async (c) => {
     await createEvent({
       kind: 30078,
       tags: [['d', 'pub.ditto.pleroma_settings_store']],
-      content: await signer.nip44!.encrypt(pubkey, JSON.stringify(settingsStore)),
+      content: JSON.stringify(settingsStore),
     }, c);
   }
 
@@ -400,6 +411,28 @@ const favouritesController: AppController = async (c) => {
   return paginated(c, events1, statuses);
 };
 
+const familiarFollowersController: AppController = async (c) => {
+  const store = await Storages.db();
+  const signer = c.get('signer')!;
+  const pubkey = await signer.getPublicKey();
+
+  const ids = z.array(z.string()).parse(c.req.queries('id[]'));
+  const follows = await getFollowedPubkeys(pubkey);
+
+  const results = await Promise.all(ids.map(async (id) => {
+    const followLists = await store.query([{ kinds: [3], authors: follows, '#p': [id] }])
+      .then((events) => hydrateEvents({ events, store }));
+
+    const accounts = await Promise.all(
+      followLists.map((event) => event.author ? renderAccount(event.author) : accountFromPubkey(event.pubkey)),
+    );
+
+    return { id, accounts };
+  }));
+
+  return c.json(results);
+};
+
 export {
   accountController,
   accountLookupController,
@@ -407,6 +440,7 @@ export {
   accountStatusesController,
   blockController,
   createAccountController,
+  familiarFollowersController,
   favouritesController,
   followController,
   followersController,
