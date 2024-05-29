@@ -48,6 +48,19 @@ const getAuthor = async (pubkey: string, opts: GetEventOpts = {}): Promise<Nostr
     .then(([event]) => event);
 };
 
+const getAuthorFallback = async (pubkey: string, opts: GetEventOpts = {}): Promise<NostrEvent | undefined> => {
+  const author = await getAuthor(pubkey, opts);
+  const { signal = AbortSignal.timeout(1000) } = opts;
+
+  if (author) return author;
+
+  const pool = await Storages.client();
+  return await pool.query([{ authors: [pubkey], kinds: [0], limit: 1 }], { limit: 1, signal })
+    .then((events) => hydrateEvents({ events, store: pool, signal }))
+    .then(([event]) => event);
+
+};
+
 /** Get users the given pubkey follows. */
 const getFollows = async (pubkey: string, signal?: AbortSignal): Promise<NostrEvent | undefined> => {
   const store = await Storages.db();
@@ -113,6 +126,7 @@ async function isLocallyFollowed(pubkey: string): Promise<boolean> {
 export {
   getAncestors,
   getAuthor,
+  getAuthorFallback,
   getDescendants,
   getEvent,
   getFeedPubkeys,
