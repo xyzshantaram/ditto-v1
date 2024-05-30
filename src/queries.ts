@@ -1,4 +1,4 @@
-import { NostrEvent, NostrFilter } from '@nostrify/nostrify';
+import { NostrEvent, NostrFilter, NStore } from '@nostrify/nostrify';
 import Debug from '@soapbox/stickynotes/debug';
 
 import { Conf } from '@/config.ts';
@@ -38,27 +38,31 @@ const getEvent = async (
     .then(([event]) => event);
 };
 
+const queryAndUnwrapEvt = (store: NStore, filter: NostrFilter, signal = AbortSignal.timeout(5000), limit = 1) =>
+  store.query([filter], { limit, signal } as any)
+    .then((events) => hydrateEvents({ events, store, signal }))
+    .then(([event]) => event);
+
 /** Get a Nostr `set_medatadata` event for a user's pubkey. */
 const getAuthor = async (pubkey: string, opts: GetEventOpts = {}): Promise<NostrEvent | undefined> => {
   const store = await Storages.db();
   const { signal = AbortSignal.timeout(1000) } = opts;
-
-  return await store.query([{ authors: [pubkey], kinds: [0], limit: 1 }], { limit: 1, signal })
-    .then((events) => hydrateEvents({ events, store, signal }))
-    .then(([event]) => event);
+  return await queryAndUnwrapEvt(store, { authors: [pubkey], kinds: [0], limit: 1 }, signal);
 };
 
 const getAuthorFallback = async (pubkey: string, opts: GetEventOpts = {}): Promise<NostrEvent | undefined> => {
   const author = await getAuthor(pubkey, opts);
-  const { signal = AbortSignal.timeout(1000) } = opts;
-
   if (author) return author;
 
-  const pool = await Storages.client();
-  return await pool.query([{ authors: [pubkey], kinds: [0], limit: 1 }], { limit: 1, signal })
-    .then((events) => hydrateEvents({ events, store: pool, signal }))
-    .then(([event]) => event);
+  const pool = await Storages.kind0Finder();
+  const res = await queryAndUnwrapEvt(pool, { authors: [pubkey], kinds: [0], limit: 1 }, opts.signal);
 
+  if (res) {
+    const store = await Storages.db();
+    store.event(res);
+  }
+
+  return res;
 };
 
 /** Get users the given pubkey follows. */
