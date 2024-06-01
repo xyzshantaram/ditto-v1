@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { type AppController } from '@/app.ts';
 import { Conf } from '@/config.ts';
-import { getAuthor, getFollowedPubkeys } from '@/queries.ts';
+import { getAuthor, getAuthorFallback, getFollowedPubkeys } from '@/queries.ts';
 import { booleanParamSchema, fileSchema } from '@/schema.ts';
 import { Storages } from '@/storages.ts';
 import { uploadFile } from '@/utils/upload.ts';
@@ -79,7 +79,7 @@ const verifyCredentialsController: AppController = async (c) => {
 const accountController: AppController = async (c) => {
   const pubkey = c.req.param('pubkey');
 
-  const event = await getAuthor(pubkey);
+  const event = await getAuthorFallback(pubkey);
   if (event) {
     return c.json(await renderAccount(event));
   } else {
@@ -244,7 +244,7 @@ const updateCredentialsController: AppController = async (c) => {
     return c.json(result.error, 422);
   }
 
-  const author = await getAuthor(pubkey);
+  const author = await getAuthorFallback(pubkey);
   const meta = author ? n.json().pipe(n.metadata()).catch({}).parse(author.content) : {};
 
   const {

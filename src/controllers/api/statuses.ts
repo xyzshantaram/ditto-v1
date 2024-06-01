@@ -9,7 +9,7 @@ import { type AppController } from '@/app.ts';
 import { Conf } from '@/config.ts';
 import { DittoDB } from '@/db/DittoDB.ts';
 import { getUnattachedMediaByIds } from '@/db/unattached-media.ts';
-import { getAncestors, getAuthor, getDescendants, getEvent } from '@/queries.ts';
+import { getAncestors, getAuthorFallback, getDescendants, getEvent } from '@/queries.ts';
 import { renderEventAccounts } from '@/views.ts';
 import { renderReblog, renderStatus } from '@/views/mastodon/statuses.ts';
 import { Storages } from '@/storages.ts';
@@ -163,7 +163,7 @@ const createStatusController: AppController = async (c) => {
     tags,
   }, c);
 
-  const author = await getAuthor(event.pubkey);
+  const author = await getAuthorFallback(event.pubkey);
 
   if (data.quote_id) {
     await hydrateEvents({
@@ -189,7 +189,7 @@ const deleteStatusController: AppController = async (c) => {
         tags: [['e', id]],
       }, c);
 
-      const author = await getAuthor(event.pubkey);
+      const author = await getAuthorFallback(event.pubkey);
       return c.json(await renderStatus({ ...event, author }, { viewerPubkey: pubkey }));
     } else {
       return c.json({ error: 'Unauthorized' }, 403);
