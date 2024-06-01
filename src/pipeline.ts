@@ -1,5 +1,4 @@
-import { NKinds, NostrEvent, NPolicy, NSchema as n } from '@nostrify/nostrify';
-import { LNURL } from '@nostrify/nostrify/ln';
+import { NKinds, NostrEvent, NSchema as n } from '@nostrify/nostrify';
 import { PipePolicy } from '@nostrify/nostrify/policies';
 import Debug from '@soapbox/stickynotes/debug';
 import { sql } from 'kysely';
@@ -12,15 +11,12 @@ import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { DVM } from '@/pipeline/DVM.ts';
 import { MuteListPolicy } from '@/policies/MuteListPolicy.ts';
 import { RelayError } from '@/RelayError.ts';
-import { hydrateEvents, purifyEvent } from '@/storages/hydrate.ts';
+import { hydrateEvents } from '@/storages/hydrate.ts';
 import { Storages } from '@/storages.ts';
-import { eventAge, nostrDate, nostrNow, parseNip05, Time } from '@/utils.ts';
-import { fetchWorker } from '@/workers/fetch.ts';
+import { eventAge, nostrDate, parseNip05, Time } from '@/utils.ts';
 import { policyWorker } from '@/workers/policy.ts';
 import { TrendsWorker } from '@/workers/trends.ts';
 import { verifyEventWorker } from '@/workers/verify.ts';
-import { AdminSigner } from '@/signers/AdminSigner.ts';
-import { lnurlCache } from '@/utils/lnurl.ts';
 import { nip05Cache } from '@/utils/nip05.ts';
 import { updateStats } from '@/utils/stats.ts';
 import { getTagSet } from '@/utils/tags.ts';
@@ -32,6 +28,13 @@ const debug = Debug('ditto:pipeline');
  * It is idempotent, so it can be called multiple times for the same event.
  */
 async function handleEvent(event: DittoEvent, signal: AbortSignal): Promise<void> {
+  // Integer max value for Postgres. TODO: switch to a bigint in 2038.
+  if (event.created_at >= 2_147_483_647) {
+    throw new RelayError('blocked', 'event too far in the future');
+  }
+  if (event.kind >= 2_147_483_647) {
+    throw new RelayError('blocked', 'event kind too large');
+  }
   if (!(await verifyEventWorker(event))) return;
   if (encounterEvent(event)) return;
   debug(`NostrEvent<${event.kind}> ${event.id}`);
@@ -48,7 +51,6 @@ async function handleEvent(event: DittoEvent, signal: AbortSignal): Promise<void
     DVM.event(event),
     trackHashtags(event),
     processMedia(event),
-    payZap(event, signal),
     streamOut(event),
   ]);
 }
@@ -56,24 +58,10 @@ async function handleEvent(event: DittoEvent, signal: AbortSignal): Promise<void
 async function policyFilter(event: NostrEvent): Promise<void> {
   const debug = Debug('ditto:policy');
 
-  const policies: NPolicy[] = [
+  const policy = new PipePolicy([
     new MuteListPolicy(Conf.pubkey, await Storages.admin()),
-  ];
-
-  try {
-    await policyWorker.import(Conf.policy);
-    policies.push(policyWorker);
-    debug(`Using custom policy: ${Conf.policy}`);
-  } catch (e) {
-    if (e.message.includes('Module not found')) {
-      debug('Custom policy not found <https://docs.soapbox.pub/ditto/policies/>');
-    } else {
-      console.error(`DITTO_POLICY (error importing policy): ${Conf.policy}`, e);
-      throw new RelayError('blocked', 'policy could not be loaded');
-    }
-  }
-
-  const policy = new PipePolicy(policies.reverse());
+    policyWorker,
+  ]);
 
   try {
     const result = await policy.call(event);
@@ -186,53 +174,6 @@ function processMedia({ tags, pubkey, user }: DittoEvent) {
   if (user) {
     const urls = getTagSet(tags, 'media');
     return deleteAttachedMedia(pubkey, [...urls]);
-  }
-}
-
-/** Emit Nostr Wallet Connect event from zaps so users may pay. */
-async function payZap(event: DittoEvent, signal: AbortSignal) {
-  if (event.kind !== 9734 || !event.user) return;
-
-  const lnurl = event.tags.find(([name]) => name === 'lnurl')?.[1];
-  const amount = Number(event.tags.find(([name]) => name === 'amount')?.[1]);
-
-  if (!lnurl || !amount) return;
-
-  try {
-    const details = await lnurlCache.fetch(lnurl, { signal });
-
-    if (details.tag !== 'payRequest' || !details.allowsNostr || !details.nostrPubkey) {
-      throw new Error('invalid lnurl');
-    }
-
-    if (amount > details.maxSendable || amount < details.minSendable) {
-      throw new Error('amount out of range');
-    }
-
-    const { pr } = await LNURL.callback(
-      details.callback,
-      { amount, nostr: purifyEvent(event), lnurl },
-      { fetch: fetchWorker, signal },
-    );
-
-    const signer = new AdminSigner();
-
-    const nwcRequestEvent = await signer.signEvent({
-      kind: 23194,
-      content: await signer.nip04.encrypt(
-        event.pubkey,
-        JSON.stringify({ method: 'pay_invoice', params: { invoice: pr } }),
-      ),
-      created_at: nostrNow(),
-      tags: [
-        ['p', event.pubkey],
-        ['e', event.id],
-      ],
-    });
-
-    await handleEvent(nwcRequestEvent, signal);
-  } catch (e) {
-    debug('lnurl error:', e);
   }
 }
 

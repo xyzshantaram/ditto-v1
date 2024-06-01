@@ -13,15 +13,15 @@ import { getAncestors, getAuthor, getDescendants, getEvent } from '@/queries.ts'
 import { renderEventAccounts } from '@/views.ts';
 import { renderReblog, renderStatus } from '@/views/mastodon/statuses.ts';
 import { Storages } from '@/storages.ts';
-import { hydrateEvents } from '@/storages/hydrate.ts';
+import { hydrateEvents, purifyEvent } from '@/storages/hydrate.ts';
 import { createEvent, paginationSchema, parseBody, updateListEvent } from '@/utils/api.ts';
-import { getLnurl } from '@/utils/lnurl.ts';
+import { getInvoice, getLnurl } from '@/utils/lnurl.ts';
 import { lookupPubkey } from '@/utils/lookup.ts';
 import { addTag, deleteTag } from '@/utils/tags.ts';
 import { asyncReplaceAll } from '@/utils/text.ts';
 
 const createStatusSchema = z.object({
-  in_reply_to_id: z.string().regex(/[0-9a-f]{64}/).nullish(),
+  in_reply_to_id: n.id().nullish(),
   language: z.string().refine(ISO6391.validate).nullish(),
   media_ids: z.string().array().nullish(),
   poll: z.object({
@@ -36,7 +36,7 @@ const createStatusSchema = z.object({
   status: z.string().nullish(),
   to: z.string().array().nullish(),
   visibility: z.enum(['public', 'unlisted', 'private', 'direct']).nullish(),
-  quote_id: z.string().nullish(),
+  quote_id: n.id().nullish(),
 }).refine(
   (data) => Boolean(data.status || data.media_ids?.length),
   { message: 'Status must contain text or media.' },
@@ -155,11 +155,12 @@ const createStatusController: AppController = async (c) => {
     .map(({ data }) => data.find(([name]) => name === 'url')?.[1])
     .filter((url): url is string => Boolean(url));
 
-  const mediaCompat: string = mediaUrls.length ? ['', '', ...mediaUrls].join('\n') : '';
+  const quoteCompat = data.quote_id ? `\n\nnostr:${nip19.noteEncode(data.quote_id)}` : '';
+  const mediaCompat = mediaUrls.length ? `\n\n${mediaUrls.join('\n')}` : '';
 
   const event = await createEvent({
     kind: 1,
-    content: content + mediaCompat,
+    content: content + quoteCompat + mediaCompat,
     tags,
   }, c);
 
@@ -450,15 +451,16 @@ const zapController: AppController = async (c) => {
   const author = target?.author;
   const meta = n.json().pipe(n.metadata()).catch({}).parse(author?.content);
   const lnurl = getLnurl(meta);
+  const amount = params.data.amount;
 
   if (target && lnurl) {
-    await createEvent({
+    const nostr = await createEvent({
       kind: 9734,
       content: params.data.comment ?? '',
       tags: [
         ['e', target.id],
         ['p', target.pubkey],
-        ['amount', params.data.amount.toString()],
+        ['amount', amount.toString()],
         ['relays', Conf.relay],
         ['lnurl', lnurl],
       ],
@@ -467,7 +469,11 @@ const zapController: AppController = async (c) => {
     const status = await renderStatus(target, { viewerPubkey: await c.get('signer')?.getPublicKey() });
     status.zapped = true;
 
-    return c.json(status);
+    return c.json(status, {
+      headers: {
+        'Ln-Invoice': await getInvoice({ amount, nostr: purifyEvent(nostr), lnurl }, signal),
+      },
+    });
   } else {
     return c.json({ error: 'Event not found.' }, 404);
   }
