@@ -1,18 +1,16 @@
 // deno-lint-ignore-file require-await
-import { RelayPoolWorker } from 'nostr-relaypool';
-
 import { Conf } from '@/config.ts';
 import { DittoDB } from '@/db/DittoDB.ts';
 import { EventsDB } from '@/storages/EventsDB.ts';
-import { PoolStore } from '@/storages/pool-store.ts';
 import { SearchStore } from '@/storages/search-store.ts';
 import { InternalRelay } from '@/storages/InternalRelay.ts';
 import { UserStore } from '@/storages/UserStore.ts';
+import { NPool, NRelay1 } from '@nostrify/nostrify';
 
 export class Storages {
   private static _db: Promise<EventsDB> | undefined;
   private static _admin: Promise<UserStore> | undefined;
-  private static _client: Promise<PoolStore> | undefined;
+  private static _client: Promise<NPool> | undefined;
   private static _pubsub: Promise<InternalRelay> | undefined;
   private static _search: Promise<SearchStore> | undefined;
 
@@ -44,7 +42,7 @@ export class Storages {
   }
 
   /** Relay pool storage. */
-  public static async client(): Promise<PoolStore> {
+  public static async client(): Promise<NPool> {
     if (!this._client) {
       this._client = (async () => {
         const db = await this.db();
@@ -64,23 +62,14 @@ export class Storages {
 
         console.log(`pool: connecting to ${activeRelays.length} relays.`);
 
-        const worker = new Worker('https://unpkg.com/nostr-relaypool2@0.6.34/lib/nostr-relaypool.worker.js', {
-          type: 'module',
+        const pool = new NPool({
+          open(url: string) {
+            return new NRelay1(url);
+          },
+          reqRelays: async () => activeRelays,
+          eventRelays: async () => activeRelays,
         });
-
-        // @ts-ignore Wrong types.
-        const pool = new RelayPoolWorker(worker, activeRelays, {
-          autoReconnect: true,
-          // The pipeline verifies events.
-          skipVerification: true,
-          // The logging feature overwhelms the CPU and creates too many logs.
-          logErrorsAndNotices: false,
-        });
-
-        return new PoolStore({
-          pool,
-          relays: activeRelays,
-        });
+        return pool;
       })();
     }
     return this._client;

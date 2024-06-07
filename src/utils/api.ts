@@ -13,6 +13,7 @@ import { RelayError } from '@/RelayError.ts';
 import { AdminSigner } from '@/signers/AdminSigner.ts';
 import { Storages } from '@/storages.ts';
 import { nostrNow } from '@/utils.ts';
+import { purifyEvent } from '@/storages/hydrate.ts';
 
 const debug = Debug('ditto:api');
 
@@ -113,7 +114,8 @@ async function publishEvent(event: NostrEvent, c: AppContext): Promise<NostrEven
   try {
     await pipeline.handleEvent(event, c.req.raw.signal);
     const client = await Storages.client();
-    await client.event(event);
+    console.log('publishing event', event, 'to', client);
+    await client.event(purifyEvent(event));
   } catch (e) {
     if (e instanceof RelayError) {
       throw new HTTPException(422, {
