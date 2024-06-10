@@ -38,14 +38,31 @@ const getEvent = async (
     .then(([event]) => event);
 };
 
+const queryAndUnwrapEvt = (store: NStore, filter: NostrFilter, signal = AbortSignal.timeout(5000), limit = 1) =>
+  store.query([filter], { limit, signal } as any)
+    .then((events) => hydrateEvents({ events, store, signal }))
+    .then(([event]) => event);
+
 /** Get a Nostr `set_medatadata` event for a user's pubkey. */
 const getAuthor = async (pubkey: string, opts: GetEventOpts = {}): Promise<NostrEvent | undefined> => {
   const store = await Storages.db();
   const { signal = AbortSignal.timeout(1000) } = opts;
+  return await queryAndUnwrapEvt(store, { authors: [pubkey], kinds: [0], limit: 1 }, signal);
+};
 
-  return await store.query([{ authors: [pubkey], kinds: [0], limit: 1 }], { limit: 1, signal })
-    .then((events) => hydrateEvents({ events, store, signal }))
-    .then(([event]) => event);
+const getAuthorFallback = async (pubkey: string, opts: GetEventOpts = {}): Promise<NostrEvent | undefined> => {
+  const author = await getAuthor(pubkey, opts);
+  if (author) return author;
+
+  const pool = await Storages.kind0Finder();
+  const res = await queryAndUnwrapEvt(pool, { authors: [pubkey], kinds: [0], limit: 1 }, opts.signal);
+
+  if (res) {
+    const store = await Storages.db();
+    store.event(res);
+  }
+
+  return res;
 };
 
 /** Get users the given pubkey follows. */
@@ -113,6 +130,7 @@ async function isLocallyFollowed(pubkey: string): Promise<boolean> {
 export {
   getAncestors,
   getAuthor,
+  getAuthorFallback,
   getDescendants,
   getEvent,
   getFeedPubkeys,

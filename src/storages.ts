@@ -15,6 +15,7 @@ export class Storages {
   private static _client: Promise<PoolStore> | undefined;
   private static _pubsub: Promise<InternalRelay> | undefined;
   private static _search: Promise<SearchStore> | undefined;
+  private static _kind0Finder: PoolStore | undefined;
 
   /** SQLite database to store events this Ditto server cares about. */
   public static async db(): Promise<EventsDB> {
@@ -41,6 +42,31 @@ export class Storages {
       this._pubsub = Promise.resolve(new InternalRelay());
     }
     return this._pubsub;
+  }
+
+  public static async kind0Finder(): Promise<PoolStore> {
+    if (this._kind0Finder) return this._kind0Finder;
+    const worker = new Worker('https://unpkg.com/nostr-relaypool2@0.6.34/lib/nostr-relaypool.worker.js', {
+      type: 'module',
+    });
+
+    const DEFAULT_RELAYS = [
+      'wss://nos.lol',
+      'wss://relay.damus.io',
+      'wss://purplepag.es',
+      'wss://nostr.mom',
+      'wss://relay.snort.social',
+      'wss://relay.primal.net',
+    ];
+
+    // @ts-ignore Wrong types.
+    const pool = new RelayPoolWorker(worker, DEFAULT_RELAYS, {
+      autoReconnect: true,
+      skipVerification: false,
+      logErrorsAndNotices: false,
+    });
+
+    return this._kind0Finder = new PoolStore({ pool, relays: DEFAULT_RELAYS });
   }
 
   /** Relay pool storage. */

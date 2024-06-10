@@ -2,3 +2,4 @@
 *.cpuprofile
 *.swp
 deno-test.xml
+*.db
