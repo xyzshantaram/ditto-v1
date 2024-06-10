@@ -8,6 +8,7 @@ import { PoolStore } from '@/storages/pool-store.ts';
 import { SearchStore } from '@/storages/search-store.ts';
 import { InternalRelay } from '@/storages/InternalRelay.ts';
 import { UserStore } from '@/storages/UserStore.ts';
+import { NPool, NRelay1 } from '@nostrify/nostrify';
 
 export class Storages {
   private static _db: Promise<EventsDB> | undefined;
@@ -46,9 +47,6 @@ export class Storages {
 
   public static async kind0Finder(): Promise<PoolStore> {
     if (this._kind0Finder) return this._kind0Finder;
-    const worker = new Worker('https://unpkg.com/nostr-relaypool2@0.6.34/lib/nostr-relaypool.worker.js', {
-      type: 'module',
-    });
 
     const DEFAULT_RELAYS = [
       'wss://nos.lol',
@@ -59,12 +57,13 @@ export class Storages {
       'wss://relay.primal.net',
     ];
 
-    // @ts-ignore Wrong types.
-    const pool = new RelayPoolWorker(worker, DEFAULT_RELAYS, {
-      autoReconnect: true,
-      skipVerification: false,
-      logErrorsAndNotices: false,
-    });
+    const pool = new NPool({
+      open(url) {
+        return new NRelay1(url);
+      },
+      async reqRelays() { return DEFAULT_RELAYS },
+      async eventRelays() { return [] }
+    })
 
     return this._kind0Finder = new PoolStore({ pool, relays: DEFAULT_RELAYS });
   }
