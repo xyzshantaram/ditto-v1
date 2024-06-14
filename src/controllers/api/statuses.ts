@@ -562,6 +562,8 @@ const zappedByController: AppController = async (c) => {
   const results = (await Promise.all(
     events.map(async (event) => {
       const amount = amountSchema.parse(event.tags.find(([name]) => name === 'amount')?.[1]);
+      if (amount <= 0) return;
+
       const comment = event?.content ?? '';
       const account = event?.author ? await renderAccount(event.author) : await accountFromPubkey(event.pubkey);
 
