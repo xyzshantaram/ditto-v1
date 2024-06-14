@@ -52,6 +52,7 @@
     "linkify-string": "npm:linkify-string@^4.1.1",
     "linkifyjs": "npm:linkifyjs@^4.1.1",
     "lru-cache": "npm:lru-cache@^10.2.2",
+    "node-pg": "npm:pg@8.12.0",
     "nostr-relaypool": "npm:nostr-relaypool2@0.6.34",
     "nostr-tools": "npm:nostr-tools@2.5.1",
     "nostr-wasm": "npm:nostr-wasm@^0.1.0",
