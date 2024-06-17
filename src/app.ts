@@ -6,7 +6,6 @@ import { cors, logger, serveStatic } from 'hono/middleware';
 import { Conf } from '@/config.ts';
 import { cron } from '@/cron.ts';
 import { startFirehose } from '@/firehose.ts';
-import { Time } from '@/utils.ts';
 
 import {
   accountController,
@@ -26,13 +25,27 @@ import {
   updateCredentialsController,
   verifyCredentialsController,
 } from '@/controllers/api/accounts.ts';
-import { adminAccountAction, adminAccountsController } from '@/controllers/api/admin.ts';
+import {
+  adminAccountsController,
+  adminActionController,
+  adminApproveController,
+  adminRejectController,
+} from '@/controllers/api/admin.ts';
 import { appCredentialsController, createAppController } from '@/controllers/api/apps.ts';
 import { blocksController } from '@/controllers/api/blocks.ts';
 import { bookmarksController } from '@/controllers/api/bookmarks.ts';
-import { adminRelaysController, adminSetRelaysController } from '@/controllers/api/ditto.ts';
+import {
+  adminRelaysController,
+  adminSetRelaysController,
+  nameRequestController,
+  nameRequestsController,
+} from '@/controllers/api/ditto.ts';
 import { emptyArrayController, emptyObjectController, notImplementedController } from '@/controllers/api/fallback.ts';
-import { instanceController } from '@/controllers/api/instance.ts';
+import {
+  instanceDescriptionController,
+  instanceV1Controller,
+  instanceV2Controller,
+} from '@/controllers/api/instance.ts';
 import { markersController, updateMarkersController } from '@/controllers/api/markers.ts';
 import { mediaController } from '@/controllers/api/media.ts';
 import { mutesController } from '@/controllers/api/mutes.ts';
@@ -42,6 +55,10 @@ import {
   configController,
   frontendConfigController,
   pleromaAdminDeleteStatusController,
+  pleromaAdminSuggestController,
+  pleromaAdminTagController,
+  pleromaAdminUnsuggestController,
+  pleromaAdminUntagController,
   updateConfigController,
 } from '@/controllers/api/pleroma.ts';
 import { preferencesController } from '@/controllers/api/preferences.ts';
@@ -49,6 +66,7 @@ import { deleteReactionController, reactionController, reactionsController } fro
 import { relayController } from '@/controllers/nostr/relay.ts';
 import {
   adminReportController,
+  adminReportReopenController,
   adminReportResolveController,
   adminReportsController,
   reportController,
@@ -70,6 +88,7 @@ import {
   unpinController,
   unreblogStatusController,
   zapController,
+  zappedByController,
 } from '@/controllers/api/statuses.ts';
 import { streamingController } from '@/controllers/api/streaming.ts';
 import { suggestionsV1Controller, suggestionsV2Controller } from '@/controllers/api/suggestions.ts';
@@ -88,7 +107,6 @@ import { indexController } from '@/controllers/site.ts';
 import { nodeInfoController, nodeInfoSchemaController } from '@/controllers/well-known/nodeinfo.ts';
 import { nostrController } from '@/controllers/well-known/nostr.ts';
 import { auth98Middleware, requireProof, requireRole } from '@/middleware/auth98Middleware.ts';
-import { cacheMiddleware } from '@/middleware/cacheMiddleware.ts';
 import { cspMiddleware } from '@/middleware/cspMiddleware.ts';
 import { requireSigner } from '@/middleware/requireSigner.ts';
 import { signerMiddleware } from '@/middleware/signerMiddleware.ts';
@@ -114,7 +132,7 @@ type AppContext = Context<AppEnv>;
 type AppMiddleware = MiddlewareHandler<AppEnv>;
 type AppController = Handler<AppEnv, any, HonoInput, Response | Promise<Response>>;
 
-const app = new Hono<AppEnv>();
+const app = new Hono<AppEnv>({ strict: false });
 
 const debug = Debug('ditto:http');
 
@@ -126,14 +144,12 @@ if (Conf.cronEnabled) {
 }
 
 app.use('/api/*', logger(debug));
-app.use('/relay/*', logger(debug));
 app.use('/.well-known/*', logger(debug));
 app.use('/users/*', logger(debug));
 app.use('/nodeinfo/*', logger(debug));
 app.use('/oauth/*', logger(debug));
 
 app.get('/api/v1/streaming', streamingController);
-app.get('/api/v1/streaming/', streamingController);
 app.get('/relay', relayController);
 
 app.use(
@@ -151,7 +167,9 @@ app.get('/.well-known/nostr.json', nostrController);
 
 app.get('/nodeinfo/:version', nodeInfoSchemaController);
 
-app.get('/api/v1/instance', cacheMiddleware({ cacheName: 'web', expires: Time.minutes(5) }), instanceController);
+app.get('/api/v1/instance', instanceV1Controller);
+app.get('/api/v2/instance', instanceV2Controller);
+app.get('/api/v1/instance/extended_description', instanceDescriptionController);
 
 app.get('/api/v1/apps/verify_credentials', appCredentialsController);
 app.post('/api/v1/apps', createAppController);
@@ -231,7 +249,6 @@ app.get('/api/v1/pleroma/statuses/:id{[0-9a-f]{64}}/reactions/:emoji', reactions
 app.put('/api/v1/pleroma/statuses/:id{[0-9a-f]{64}}/reactions/:emoji', requireSigner, reactionController);
 app.delete('/api/v1/pleroma/statuses/:id{[0-9a-f]{64}}/reactions/:emoji', requireSigner, deleteReactionController);
 
-app.get('/api/v1/admin/accounts', requireRole('admin'), adminAccountsController);
 app.get('/api/v1/pleroma/admin/config', requireRole('admin'), configController);
 app.post('/api/v1/pleroma/admin/config', requireRole('admin'), updateConfigController);
 app.delete('/api/v1/pleroma/admin/statuses/:id', requireRole('admin'), pleromaAdminDeleteStatusController);
@@ -239,7 +256,11 @@ app.delete('/api/v1/pleroma/admin/statuses/:id', requireRole('admin'), pleromaAd
 app.get('/api/v1/admin/ditto/relays', requireRole('admin'), adminRelaysController);
 app.put('/api/v1/admin/ditto/relays', requireRole('admin'), adminSetRelaysController);
 
+app.post('/api/v1/ditto/names', requireSigner, nameRequestController);
+app.get('/api/v1/ditto/names', requireSigner, nameRequestsController);
+
 app.post('/api/v1/ditto/zap', requireSigner, zapController);
+app.get('/api/v1/ditto/statuses/:id{[0-9a-f]{64}}/zapped_by', zappedByController);
 
 app.post('/api/v1/reports', requireSigner, reportController);
 app.get('/api/v1/admin/reports', requireSigner, requireRole('admin'), adminReportsController);
@@ -250,8 +271,27 @@ app.post(
   requireRole('admin'),
   adminReportResolveController,
 );
+app.post(
+  '/api/v1/admin/reports/:id{[0-9a-f]{64}}/reopen',
+  requireSigner,
+  requireRole('admin'),
+  adminReportReopenController,
+);
 
-app.post('/api/v1/admin/accounts/:id{[0-9a-f]{64}}/action', requireSigner, requireRole('admin'), adminAccountAction);
+app.get('/api/v1/admin/accounts', requireRole('admin'), adminAccountsController);
+app.post('/api/v1/admin/accounts/:id{[0-9a-f]{64}}/action', requireSigner, requireRole('admin'), adminActionController);
+app.post(
+  '/api/v1/admin/accounts/:id{[0-9a-f]{64}}/approve',
+  requireSigner,
+  requireRole('admin'),
+  adminApproveController,
+);
+app.post('/api/v1/admin/accounts/:id{[0-9a-f]{64}}/reject', requireSigner, requireRole('admin'), adminRejectController);
+
+app.put('/api/v1/pleroma/admin/users/tag', requireRole('admin'), pleromaAdminTagController);
+app.delete('/api/v1/pleroma/admin/users/tag', requireRole('admin'), pleromaAdminUntagController);
+app.patch('/api/v1/pleroma/admin/users/suggest', requireRole('admin'), pleromaAdminSuggestController);
+app.patch('/api/v1/pleroma/admin/users/unsuggest', requireRole('admin'), pleromaAdminUnsuggestController);
 
 // Not (yet) implemented.
 app.get('/api/v1/custom_emojis', emptyArrayController);
@@ -261,6 +301,9 @@ app.get('/api/v1/conversations', emptyArrayController);
 app.get('/api/v1/lists', emptyArrayController);
 
 app.use('/api/*', notImplementedController);
+app.use('/.well-known/*', notImplementedController);
+app.use('/nodeinfo/*', notImplementedController);
+app.use('/oauth/*', notImplementedController);
 
 const publicFiles = serveStatic({ root: './public/' });
 const staticFiles = serveStatic({ root: './static/' });

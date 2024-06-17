@@ -2,6 +2,8 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
 import { Conf } from '@/config.ts';
+import { MastodonMention } from '@/entities/MastodonMention.ts';
+import { MastodonStatus } from '@/entities/MastodonStatus.ts';
 import { type DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { Storages } from '@/storages.ts';
 import { nostrDate } from '@/utils.ts';
@@ -17,7 +19,7 @@ interface RenderStatusOpts {
   depth?: number;
 }
 
-async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<any> {
+async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<MastodonStatus | undefined> {
   const { viewerPubkey, depth = 1 } = opts;
 
   if (depth > 2 || depth < 0) return;
@@ -100,10 +102,11 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
     sensitive: !!cw,
     spoiler_text: (cw ? cw[1] : subject?.[1]) || '',
     visibility: 'public',
-    language: event.tags.find((tag) => tag[0] === 'lang')?.[1] || null,
+    language: event.tags.find((tag) => tag[0] === 'l' && tag[2] === 'ISO-639-1')?.[1] || null,
     replies_count: event.event_stats?.replies_count ?? 0,
     reblogs_count: event.event_stats?.reposts_count ?? 0,
     favourites_count: event.event_stats?.reactions['+'] ?? 0,
+    zaps_amount: event.event_stats?.zaps_amount ?? 0,
     favourited: reactionEvent?.content === '+',
     reblogged: Boolean(repostEvent),
     muted: false,
@@ -118,8 +121,8 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
     poll: null,
     quote: !event.quote ? null : await renderStatus(event.quote, { depth: depth + 1 }),
     quote_id: event.quote?.id ?? null,
-    uri: Conf.external(note),
-    url: Conf.external(note),
+    uri: Conf.local(`/${note}`),
+    url: Conf.local(`/${note}`),
     zapped: Boolean(zapEvent),
     pleroma: {
       emoji_reactions: reactions,
@@ -129,12 +132,14 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
   };
 }
 
-async function renderReblog(event: DittoEvent, opts: RenderStatusOpts) {
+async function renderReblog(event: DittoEvent, opts: RenderStatusOpts): Promise<MastodonStatus | undefined> {
   const { viewerPubkey } = opts;
   if (!event.repost) return;
 
   const status = await renderStatus(event, {}); // omit viewerPubkey intentionally
-  const reblog = await renderStatus(event.repost, { viewerPubkey });
+  if (!status) return;
+
+  const reblog = await renderStatus(event.repost, { viewerPubkey }) ?? null;
 
   return {
     ...status,
@@ -144,7 +149,7 @@ async function renderReblog(event: DittoEvent, opts: RenderStatusOpts) {
   };
 }
 
-async function toMention(pubkey: string, event?: NostrEvent) {
+async function toMention(pubkey: string, event?: NostrEvent): Promise<MastodonMention> {
   const account = event ? await renderAccount(event) : undefined;
 
   if (account) {
@@ -165,9 +170,7 @@ async function toMention(pubkey: string, event?: NostrEvent) {
   }
 }
 
-type Mention = Awaited<ReturnType<typeof toMention>>;
-
-function buildInlineRecipients(mentions: Mention[]): string {
+function buildInlineRecipients(mentions: MastodonMention[]): string {
   if (!mentions.length) return '';
 
   const elements = mentions.reduce<string[]>((acc, { url, username }) => {

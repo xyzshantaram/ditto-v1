@@ -7,8 +7,6 @@ For more info see: https://docs.soapbox.pub/ditto/
 
 <img width="400" src="ditto-planet.png">
 
-⚠️ This software is a work in progress.
-
 ## Features
 
 - [x] Built-in Nostr relay
@@ -18,9 +16,9 @@ For more info see: https://docs.soapbox.pub/ditto/
 - [x] Reposts
 - [x] Notifications
 - [x] Profiles
-- [ ] Search
+- [x] Search
 - [x] Moderation
-- [ ] Zaps
+- [x] Zaps
 - [x] Customizable
 - [x] Open source
 - [x] Self-hosted

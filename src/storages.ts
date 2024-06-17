@@ -1,15 +1,16 @@
 // deno-lint-ignore-file require-await
+import { NPool, NRelay1 } from '@nostrify/nostrify';
+
 import { Conf } from '@/config.ts';
 import { DittoDB } from '@/db/DittoDB.ts';
+import { AdminStore } from '@/storages/AdminStore.ts';
 import { EventsDB } from '@/storages/EventsDB.ts';
 import { SearchStore } from '@/storages/search-store.ts';
 import { InternalRelay } from '@/storages/InternalRelay.ts';
-import { UserStore } from '@/storages/UserStore.ts';
-import { NPool, NRelay1 } from '@nostrify/nostrify';
 
 export class Storages {
   private static _db: Promise<EventsDB> | undefined;
-  private static _admin: Promise<UserStore> | undefined;
+  private static _admin: Promise<AdminStore> | undefined;
   private static _client: Promise<NPool> | undefined;
   private static _pubsub: Promise<InternalRelay> | undefined;
   private static _search: Promise<SearchStore> | undefined;
@@ -26,9 +27,9 @@ export class Storages {
   }
 
   /** Admin user storage. */
-  public static async admin(): Promise<UserStore> {
+  public static async admin(): Promise<AdminStore> {
     if (!this._admin) {
-      this._admin = Promise.resolve(new UserStore(Conf.pubkey, await this.db()));
+      this._admin = Promise.resolve(new AdminStore(await this.db()));
     }
     return this._admin;
   }
@@ -62,14 +63,13 @@ export class Storages {
 
         console.log(`pool: connecting to ${activeRelays.length} relays.`);
 
-        const pool = new NPool({
+        return new NPool({
           open(url: string) {
             return new NRelay1(url);
           },
           reqRelays: async () => activeRelays,
           eventRelays: async () => activeRelays,
         });
-        return pool;
       })();
     }
     return this._client;

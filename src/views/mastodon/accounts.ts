@@ -3,9 +3,11 @@ import { escape } from 'entities';
 import { nip19, UnsignedEvent } from 'nostr-tools';
 
 import { Conf } from '@/config.ts';
+import { MastodonAccount } from '@/entities/MastodonAccount.ts';
 import { type DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { getLnurl } from '@/utils/lnurl.ts';
 import { nip05Cache } from '@/utils/nip05.ts';
+import { getTagSet } from '@/utils/tags.ts';
 import { Nip05, nostrDate, nostrNow, parseNip05 } from '@/utils.ts';
 import { renderEmojis } from '@/views/mastodon/emojis.ts';
 
@@ -16,9 +18,16 @@ interface ToAccountOpts {
 async function renderAccount(
   event: Omit<DittoEvent, 'id' | 'sig'>,
   opts: ToAccountOpts = {},
-) {
+): Promise<MastodonAccount> {
   const { withSource = false } = opts;
   const { pubkey } = event;
+
+  const names = getTagSet(event.user?.tags ?? [], 'n');
+  if (names.has('disabled') || names.has('suspended')) {
+    const account = await accountFromPubkey(pubkey, opts);
+    account.pleroma.deactivated = true;
+    return account;
+  }
 
   const {
     name,
@@ -33,7 +42,6 @@ async function renderAccount(
 
   const npub = nip19.npubEncode(pubkey);
   const parsed05 = await parseAndVerifyNip05(nip05, pubkey);
-  const role = event.user?.tags.find(([name]) => name === 'role')?.[1] ?? 'user';
 
   return {
     id: pubkey,
@@ -74,13 +82,15 @@ async function renderAccount(
     username: parsed05?.nickname || npub.substring(0, 8),
     ditto: {
       accepts_zaps: Boolean(getLnurl({ lud06, lud16 })),
-      is_registered: Boolean(event.user),
     },
     pleroma: {
-      is_admin: role === 'admin',
-      is_moderator: ['admin', 'moderator'].includes(role),
+      deactivated: names.has('disabled') || names.has('suspended'),
+      is_admin: names.has('admin'),
+      is_moderator: names.has('admin') || names.has('moderator'),
+      is_suggested: names.has('suggested'),
       is_local: parsed05?.domain === Conf.url.host,
       settings_store: undefined as unknown,
+      tags: [...getTagSet(event.user?.tags ?? [], 't')],
     },
     nostr: {
       pubkey,
@@ -90,7 +100,7 @@ async function renderAccount(
   };
 }
 
-function accountFromPubkey(pubkey: string, opts: ToAccountOpts = {}) {
+function accountFromPubkey(pubkey: string, opts: ToAccountOpts = {}): Promise<MastodonAccount> {
   const event: UnsignedEvent = {
     kind: 0,
     pubkey,
