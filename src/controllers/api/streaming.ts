@@ -36,6 +36,12 @@ const streamSchema = z.enum([
 
 type Stream = z.infer<typeof streamSchema>;
 
+/** Maximum number of connections per IP. */
+const MAX_CONNECTIONS = 5;
+
+/** Map of IP addresses to connection counts. */
+const connections = new Map<string, number>();
+
 const streamingController: AppController = async (c) => {
   const upgrade = c.req.header('upgrade');
   const token = c.req.header('sec-websocket-protocol');
@@ -49,6 +55,13 @@ const streamingController: AppController = async (c) => {
   const pubkey = token ? await getTokenPubkey(token) : undefined;
   if (token && !pubkey) {
     return c.json({ error: 'Invalid access token' }, 401);
+  }
+
+  const ip = c.req.header('x-real-ip');
+  const count = ip ? connections.get(ip) ?? 0 : 0;
+
+  if (count >= MAX_CONNECTIONS) {
+    return c.text('Too many connections.', 429);
   }
 
   const { socket, response } = Deno.upgradeWebSocket(c.req.raw, { protocol: token, idleTimeout: 30 });
@@ -97,7 +110,9 @@ const streamingController: AppController = async (c) => {
   }
 
   socket.onopen = async () => {
+    if (ip) connections.set(ip, count + 1);
     if (!stream) return;
+
     const topicFilter = await topicToFilter(stream, c.req.query(), pubkey);
 
     if (topicFilter) {
@@ -121,6 +136,15 @@ const streamingController: AppController = async (c) => {
 
   socket.onclose = () => {
     controller.abort();
+
+    if (ip) {
+      const next = count - 1;
+      if (next <= 0) {
+        connections.delete(ip);
+      } else {
+        connections.set(ip, next);
+      }
+    }
   };
 
   return response;

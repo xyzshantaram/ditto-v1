@@ -17,9 +17,22 @@ import { Storages } from '@/storages.ts';
 /** Limit of initial events returned for a subscription. */
 const FILTER_LIMIT = 100;
 
+/** Maximum number of connections per IP. */
+const MAX_CONNECTIONS = 3;
+
+/** Map of IP addresses to connection counts. */
+const connections = new Map<string, number>();
+
 /** Set up the Websocket connection. */
-function connectStream(socket: WebSocket) {
+function connectStream(socket: WebSocket, ip?: string) {
   const controllers = new Map<string, AbortController>();
+  const count = ip ? connections.get(ip) ?? 0 : 0;
+
+  socket.onopen = () => {
+    if (ip) {
+      connections.set(ip, count + 1);
+    }
+  };
 
   socket.onmessage = (e) => {
     const result = n.json().pipe(n.clientMsg()).safeParse(e.data);
@@ -33,6 +46,15 @@ function connectStream(socket: WebSocket) {
   socket.onclose = () => {
     for (const controller of controllers.values()) {
       controller.abort();
+    }
+
+    if (ip) {
+      const next = count - 1;
+      if (next <= 0) {
+        connections.delete(ip);
+      } else {
+        connections.set(ip, next);
+      }
     }
   };
 
@@ -138,8 +160,16 @@ const relayController: AppController = (c, next) => {
     return c.text('Please use a Nostr client to connect.', 400);
   }
 
+  const ip = c.req.header('x-real-ip');
+  if (ip) {
+    const count = connections.get(ip) ?? 0;
+    if (count >= MAX_CONNECTIONS) {
+      return c.text('Too many connections.', 429);
+    }
+  }
+
   const { socket, response } = Deno.upgradeWebSocket(c.req.raw, { idleTimeout: 30 });
-  connectStream(socket);
+  connectStream(socket, ip);
 
   return response;
 };
