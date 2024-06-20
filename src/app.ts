@@ -1,4 +1,4 @@
-import { Context, Env as HonoEnv, Handler, Hono, Input as HonoInput, MiddlewareHandler } from '@hono/hono';
+import { Context, Env as HonoEnv, Handler, Hono, MiddlewareHandler } from '@hono/hono';
 import { cors } from '@hono/hono/cors';
 import { serveStatic } from '@hono/hono/deno';
 import { logger } from '@hono/hono/logger';
@@ -134,7 +134,7 @@ interface AppEnv extends HonoEnv {
 
 type AppContext = Context<AppEnv>;
 type AppMiddleware = MiddlewareHandler<AppEnv>;
-type AppController = Handler<AppEnv, any, HonoInput, Response | Promise<Response>>;
+type AppController = Handler<AppEnv, any>;
 
 const app = new Hono<AppEnv>({ strict: false });
 
