@@ -1,8 +1,10 @@
 import { Context, MiddlewareHandler } from '@hono/hono';
 import { WSContext, WSEvents, WSReadyState } from '@hono/hono/ws';
 
-type UpgradeWebSocket = (
-  createEvents: (c: Context) => WSEvents | Promise<WSEvents>,
+export type CreateEvents = (c: Context) => WSEvents | Promise<WSEvents>;
+
+export type UpgradeWebSocket = (
+  createEvents: CreateEvents,
   options?: Deno.UpgradeWebSocketOptions,
 ) => MiddlewareHandler<
   any,

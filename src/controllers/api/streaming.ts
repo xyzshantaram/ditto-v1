@@ -1,5 +1,6 @@
 import { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import Debug from '@soapbox/stickynotes/debug';
+import { webSocketLimiter } from 'hono-rate-limiter';
 import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
@@ -9,8 +10,8 @@ import { MuteListPolicy } from '@/policies/MuteListPolicy.ts';
 import { getFeedPubkeys } from '@/queries.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { Storages } from '@/storages.ts';
-import { upgradeWebSocket } from '@/utils/websocket.ts';
-import { bech32ToPubkey } from '@/utils.ts';
+import { CreateEvents, upgradeWebSocket } from '@/utils/websocket.ts';
+import { bech32ToPubkey, Time } from '@/utils.ts';
 import { renderReblog, renderStatus } from '@/views/mastodon/statuses.ts';
 import { renderNotification } from '@/views/mastodon/notifications.ts';
 
@@ -37,6 +38,12 @@ const streamSchema = z.enum([
 
 type Stream = z.infer<typeof streamSchema>;
 
+const limiter = webSocketLimiter({
+  windowMs: Time.minutes(1),
+  limit: 20,
+  keyGenerator: (c) => c.req.header('x-real-ip')!,
+});
+
 const streamingController: AppController = async (c) => {
   const upgrade = c.req.header('upgrade');
   const token = c.req.header('sec-websocket-protocol');
@@ -57,7 +64,7 @@ const streamingController: AppController = async (c) => {
 
   const policy = pubkey ? new MuteListPolicy(pubkey, await Storages.admin()) : undefined;
 
-  return upgradeWebSocket((c) => {
+  const createEvents: CreateEvents = () => {
     let socket: WebSocket;
 
     function send(name: string, payload: object): void {
@@ -136,7 +143,12 @@ const streamingController: AppController = async (c) => {
         controller.abort();
       },
     };
-  }, { protocol: token, idleTimeout: 30 });
+  };
+
+  return upgradeWebSocket(
+    c.req.header('x-real-ip') ? limiter(createEvents) : createEvents,
+    { protocol: token, idleTimeout: 30 },
+  );
 };
 
 async function topicToFilter(
