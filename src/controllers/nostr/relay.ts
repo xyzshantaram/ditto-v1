@@ -85,7 +85,7 @@ function connectStream(socket: WebSocket) {
     send(['EOSE', subId]);
 
     try {
-      for await (const msg of pubsub.req(filters, { signal: controller.signal })) {
+      for await (const msg of pubsub.req(filters.concat({ limit: FILTER_LIMIT }), { signal: controller.signal })) {
         if (msg[0] === 'EVENT') {
           send(['EVENT', subId, msg[2]]);
         }
