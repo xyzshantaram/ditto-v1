@@ -33,6 +33,38 @@ export const adminRelaysController: AppController = async (c) => {
   return c.json(renderRelays(event));
 };
 
+export const lookupProfileController: AppController = async (c) => {
+  const store = await Storages.client();
+  const db = await Storages.db();
+  const id = c.req.param('pubkey');
+  const response = {
+    got_kind_0: false,
+    got_kind_3: false,
+    notes_count: 0,
+  };
+  const events = await store.query([{ authors: [id], kinds: [0, 3], limit: 2 }]);
+
+  if (events.some((event) => event.kind === 0)) {
+    response.got_kind_0 = true;
+    response.notes_count -= 1;
+  }
+
+  if (events.some((event) => event.kind === 3)) {
+    response.got_kind_3 = true;
+    response.notes_count -= 1;
+  }
+
+  if (c.req.query('with_notes')) {
+    const notes = await store.query([{ authors: [id], kinds: [1], limit: 100 }]);
+    events.push(...notes);
+  }
+
+  await Promise.all(events.map(async (event) => await db.event(event)));
+  response.notes_count += events.length;
+
+  return c.json(response);
+};
+
 export const adminSetRelaysController: AppController = async (c) => {
   const store = await Storages.db();
   const relays = relaySchema.array().parse(await c.req.json());
