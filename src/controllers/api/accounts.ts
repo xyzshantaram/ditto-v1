@@ -321,7 +321,7 @@ const followController: AppController = async (c) => {
 
   await updateListEvent(
     { kinds: [3], authors: [sourcePubkey], limit: 1 },
-    (tags) => addTag(tags, ['p', targetPubkey]),
+    (tags) => addTag(tags, ['p', targetPubkey, '', '']),
     c,
   );
 
