@@ -167,9 +167,12 @@ const relayController: AppController = (c, next) => {
   const upgrade = c.req.header('upgrade');
 
   // NIP-11: https://github.com/nostr-protocol/nips/blob/master/11.md
-  if (c.req.header('accept') === 'application/nostr+json') {
+  if (c.req.method === 'GET' && c.req.header('accept') === 'application/nostr+json') {
     return relayInfoController(c, next);
   }
+
+  // NIP-86: https://github.com/nostr-protocol/nips/pull/1325
+  if (c.req.header('content-type') === 'application/nostr+json+rpc') {}
 
   if (upgrade?.toLowerCase() !== 'websocket') {
     return c.text('Please use a Nostr client to connect.', 400);
