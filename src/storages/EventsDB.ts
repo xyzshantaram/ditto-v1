@@ -305,10 +305,8 @@ class EventsDB implements NStore {
           .execute()
           .then((rows) => rows.map(({ event_id }) => event_id));
 
-        if (tagIds.length) {
-          filter.ids = filter.ids ?? [];
-          filter.ids.push(...tagIds);
-        }
+        filter.ids = filter.ids ?? [];
+        filter.ids.push(...tagIds);
 
         for (const [key] of tagEntries) {
           delete filter[key];
