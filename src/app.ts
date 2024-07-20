@@ -42,6 +42,7 @@ import { bookmarksController } from '@/controllers/api/bookmarks.ts';
 import {
   adminRelaysController,
   adminSetRelaysController,
+  lookupProfileController,
   nameRequestController,
   nameRequestsController,
 } from '@/controllers/api/ditto.ts';
@@ -266,6 +267,7 @@ app.delete('/api/v1/pleroma/admin/statuses/:id', requireRole('admin'), pleromaAd
 
 app.get('/api/v1/admin/ditto/relays', requireRole('admin'), adminRelaysController);
 app.put('/api/v1/admin/ditto/relays', requireRole('admin'), adminSetRelaysController);
+app.get('/api/v1/admin/ditto/lookup/:pubkey{[0-9a-f]{64}}', requireRole('admin'), lookupProfileController);
 
 app.post('/api/v1/ditto/names', requireSigner, nameRequestController);
 app.get('/api/v1/ditto/names', requireSigner, nameRequestsController);
