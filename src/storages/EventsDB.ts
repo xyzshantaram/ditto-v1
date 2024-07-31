@@ -1,6 +1,6 @@
 // deno-lint-ignore-file require-await
 
-import { NDatabase, NIP50, NKinds, NostrEvent, NostrFilter, NSchema as n, NStore } from '@nostrify/nostrify';
+import { NIP50, NKinds, NostrEvent, NostrFilter, NSchema as n, NStore } from '@nostrify/nostrify';
 import { Stickynotes } from '@soapbox/stickynotes';
 import { Kysely } from 'kysely';
 import { nip27 } from 'nostr-tools';
@@ -10,6 +10,7 @@ import { DittoTables } from '@/db/DittoTables.ts';
 import { dbEventCounter, dbQueryCounter } from '@/metrics.ts';
 import { RelayError } from '@/RelayError.ts';
 import { purifyEvent } from '@/storages/hydrate.ts';
+import { NDatabase } from '@/storages/NDatabase.ts';
 import { isNostrId, isURL } from '@/utils.ts';
 import { abortError } from '@/utils/abort.ts';
 
