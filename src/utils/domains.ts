@@ -56,7 +56,12 @@ export const nodeInfoCache = new SimpleLRU<Domain, NodeInfoV1>(
 export async function fetchDittoDomain(domain: string): Promise<DittoTables['ditto_domains'] | undefined> {
   const total_users = (await nodeInfoCache.fetch(domain)).usage.users.total;
 
-  const { title, description, image } = (await unfurlCardCached(`https://${domain}`)) ?? { title: '', description: '' };
+  const result = await unfurlCardCached(`https://${domain}`);
+  if (!result) {
+    return;
+  }
+
+  const { title, description, image } = result;
 
   return {
     domain,
