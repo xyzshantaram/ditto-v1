@@ -41,6 +41,7 @@ import {
   adminSetRelaysController,
   deleteZapSplitsController,
   getDittoDomainController,
+  getDittoDomainsController,
   getZapSplitsController,
   nameRequestController,
   nameRequestsController,
@@ -282,6 +283,7 @@ app.post('/api/v1/ditto/zap', requireSigner, zapController);
 app.get('/api/v1/ditto/statuses/:id{[0-9a-f]{64}}/zapped_by', zappedByController);
 
 app.get('/api/v1/ditto/domains/:domain', getDittoDomainController);
+app.get('/api/v1/ditto/domains', getDittoDomainsController);
 
 app.post('/api/v1/reports', requireSigner, reportController);
 app.get('/api/v1/admin/reports', requireSigner, requireRole('admin'), adminReportsController);

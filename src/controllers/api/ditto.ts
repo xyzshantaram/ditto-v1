@@ -7,7 +7,7 @@ import { addTag } from '@/utils/tags.ts';
 import { AdminSigner } from '@/signers/AdminSigner.ts';
 import { booleanParamSchema, percentageSchema } from '@/schema.ts';
 import { Conf } from '@/config.ts';
-import { createEvent, paginated, parseBody } from '@/utils/api.ts';
+import { createEvent, paginated, paginatedList, parseBody } from '@/utils/api.ts';
 import { deleteTag } from '@/utils/tags.ts';
 import { DittoDB } from '@/db/DittoDB.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
@@ -301,4 +301,17 @@ export const getDittoDomainController: AppController = async (c) => {
   }
 
   return c.json(result);
+};
+
+export const getDittoDomainsController: AppController = async (c) => {
+  const { kysely } = await DittoDB.getInstance();
+  const params = c.get('listPagination');
+
+  const results = await kysely.selectFrom('ditto_domains')
+    .selectAll()
+    .orderBy('total_users', 'desc')
+    .limit(params.limit)
+    .execute();
+
+  return paginatedList(c, params, results);
 };
