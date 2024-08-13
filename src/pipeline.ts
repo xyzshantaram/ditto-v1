@@ -21,6 +21,7 @@ import { updateStats } from '@/utils/stats.ts';
 import { getTagSet } from '@/utils/tags.ts';
 import { getAmount } from '@/utils/bolt11.ts';
 import { DittoTables } from '@/db/DittoTables.ts';
+import { fetchDittoDomain } from '@/utils/domains.ts';
 
 const debug = Debug('ditto:pipeline');
 
@@ -150,6 +151,14 @@ async function parseMetadata(event: NostrEvent, signal: AbortSignal): Promise<vo
   try {
     const { kysely } = await DittoDB.getInstance();
     const { domain } = parseNip05(nip05);
+
+    const dittoDomain = await fetchDittoDomain(domain);
+    if (dittoDomain) {
+      await kysely.insertInto('ditto_domains')
+        .values(dittoDomain)
+        .onConflict((oc) => oc.column('domain').doUpdateSet(dittoDomain))
+        .execute();
+    }
 
     await sql`
     INSERT INTO pubkey_domains (pubkey, domain, last_updated_at)
