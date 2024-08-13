@@ -40,6 +40,7 @@ import {
   adminRelaysController,
   adminSetRelaysController,
   deleteZapSplitsController,
+  getDittoDomainController,
   getZapSplitsController,
   nameRequestController,
   nameRequestsController,
@@ -279,6 +280,8 @@ app.delete('/api/v1/admin/ditto/zap_splits', requireRole('admin'), deleteZapSpli
 
 app.post('/api/v1/ditto/zap', requireSigner, zapController);
 app.get('/api/v1/ditto/statuses/:id{[0-9a-f]{64}}/zapped_by', zappedByController);
+
+app.get('/api/v1/ditto/domains/:domain', getDittoDomainController);
 
 app.post('/api/v1/reports', requireSigner, reportController);
 app.get('/api/v1/admin/reports', requireSigner, requireRole('admin'), adminReportsController);

@@ -9,6 +9,7 @@ import { booleanParamSchema, percentageSchema } from '@/schema.ts';
 import { Conf } from '@/config.ts';
 import { createEvent, paginated, parseBody } from '@/utils/api.ts';
 import { deleteTag } from '@/utils/tags.ts';
+import { DittoDB } from '@/db/DittoDB.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { DittoZapSplits, getZapSplits } from '@/utils/zap-split.ts';
 import { getAuthor } from '@/queries.ts';
@@ -284,4 +285,20 @@ export const statusZapSplitsController: AppController = async (c) => {
   }))).filter((zapSplit) => zapSplit.weight > 0);
 
   return c.json(zapSplits, 200);
+};
+
+export const getDittoDomainController: AppController = async (c) => {
+  const domain = c.req.param('domain');
+  const { kysely } = await DittoDB.getInstance();
+
+  const [result] = await kysely.selectFrom('ditto_domains')
+    .selectAll()
+    .where('domain', '=', domain)
+    .execute();
+
+  if (!result) {
+    return c.json(404);
+  }
+
+  return c.json(result);
 };
