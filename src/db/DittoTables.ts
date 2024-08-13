@@ -5,6 +5,7 @@ export interface DittoTables {
   event_stats: EventStatsRow;
   pubkey_domains: PubkeyDomainRow;
   event_zaps: EventZapRow;
+  ditto_domains: DittoDomainRow;
 }
 
 interface AuthorStatsRow {
@@ -53,4 +54,13 @@ interface EventZapRow {
   sender_pubkey: string;
   amount_millisats: number;
   comment: string;
+}
+
+interface DittoDomainRow {
+  domain: string;
+  title: string;
+  description: string;
+  categories: Set<string>;
+  image: string;
+  total_users: number;
 }
