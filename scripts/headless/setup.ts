@@ -13,6 +13,7 @@ function missingEnv(what: string, v: string) {
 if (import.meta.main) {
   const key = generateSecretKey();
   const DITTO_NSEC = nip19.nsecEncode(key);
+  console.log('DITTO_NSEC: ', DITTO_NSEC);
 
   const LOCAL_DOMAIN = Deno.env.get('DITTO_DOMAIN');
   if (!LOCAL_DOMAIN) missingEnv('Domain value', 'DITTO_DOMAIN');
