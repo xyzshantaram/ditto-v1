@@ -1,4 +1,3 @@
-import { generateSecretKey, nip19 } from 'nostr-tools';
 import { parseUploaderConfig } from './uploader-config.ts';
 
 function scream(...args: any[]) {
@@ -11,9 +10,8 @@ function missingEnv(what: string, v: string) {
 }
 
 if (import.meta.main) {
-  const key = generateSecretKey();
-  const DITTO_NSEC = nip19.nsecEncode(key);
-  console.log('DITTO_NSEC: ', DITTO_NSEC);
+  const DITTO_NSEC = Deno.env.get('DITTO_NSEC');
+  if (!DITTO_NSEC) missingEnv('Ditto instance nsec', 'DITTO_NSEC');
 
   const LOCAL_DOMAIN = Deno.env.get('DITTO_DOMAIN');
   if (!LOCAL_DOMAIN) missingEnv('Domain value', 'DITTO_DOMAIN');
