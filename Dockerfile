@@ -13,5 +13,5 @@ RUN mkdir -p data && chown -R deno data
 USER deno
 COPY . .
 RUN deno cache src/server.ts
-RUN deno task setup:headless
+RUN deno task headless:setup
 CMD deno task start
