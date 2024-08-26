@@ -9,8 +9,7 @@ ENV PORT 5000
 
 EXPOSE 5000
 WORKDIR /app
-RUN mkdir -p data && chown -R deno data
-USER deno
+RUN mkdir -p data
 COPY . .
 RUN deno cache src/server.ts
 RUN deno task headless:setup
