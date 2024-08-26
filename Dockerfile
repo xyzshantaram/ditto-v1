@@ -14,6 +14,6 @@ RUN mkdir -p data
 COPY . .
 RUN deno cache src/server.ts
 RUN deno task headless:setup
-RUN apt-get update && apt-get install unzip curl
+RUN apt-get update && apt-get install -y unzip curl
 RUN deno task soapbox
 CMD deno task start
