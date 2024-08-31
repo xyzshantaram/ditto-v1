@@ -63,9 +63,13 @@ export function parseUploaderConfig(cfg: string) {
 if (import.meta.main) {
   const vars: Record<string, string | undefined> = {};
 
-  const domain = await question('input', 'Instance domain? (eg ditto.pub)');
+  const [domain] = Deno.args;
   if (!domain) {
     throw new Error('Domain is required!');
+  }
+
+  if (!domain.match(/^(https?):\/\/.+/)) {
+    throw new Error('Domain must begin with http(s)!');
   }
 
   vars.DITTO_UPLOADER = await question('list', 'How do you want to upload files?', [
