@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+if [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <dokku server address> <global domain> <email for letsencrypt>"
+  exit 1
+fi
+
+REMOTE_ADDR="$1"
+DOMAIN="$2"
+LETSENCRYPT_EMAIL="$3"
+DEPLOYMENT_PUBKEY="$(cat ~/.ssh/id_rsa.pub)"
+
+ssh -T "root@$REMOTE_ADDR" << EOF
+echo "$DEPLOYMENT_PUBKEY" | dokku ssh-keys:add admin
+sudo dokku plugin:install https://github.com/dokku/dokku-postgres.git
+sudo dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
+dokku postgres:create dittodb
+dokku domains:set-global "$DOMAIN"
+dokku letsencrypt:set --global email "$LETSENCRYPT_EMAIL"
+dokku letsencrypt:cron-job --add
+EOF

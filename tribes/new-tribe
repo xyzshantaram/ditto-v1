@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+wait_keypress() {
+    echo "Press Enter to proceed..."
+    read
+}
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <instance domain> <uploader config>"
+  exit 1
+fi
+
+INSTANCE_DOMAIN="$1"
+UPLOADER_CFG="$2"
+INSTANCE_NAME="$(echo "$INSTANCE_DOMAIN" | cut -d '.' -f 1)"
+GLOBAL_DOMAIN="$(echo "$INSTANCE_DOMAIN" | cut -d '.' -f 2-)"
+
+if [ -z "${NSEC+x}" ]; then
+  echo "nsec not set; generating new nsec..."
+  NSEC="$(nak key generate | nak encode nsec)"
+  echo "New Ditto instance nsec is ${NSEC}. Note this down now!"
+else
+  echo "nsec set; proceeding..."
+fi
+
+wait_keypress
+
+echo todo confirm options
+wait_keypress
+
+ssh -T "root@$GLOBAL_DOMAIN" << EOF
+dokku apps:create $INSTANCE_NAME
+dokku postgres:link dittodb $INSTANCE_NAME
+dokku docker-options:add $INSTANCE_NAME build '--build-arg DITTO_NSEC="$NSEC"'
+dokku docker-options:add $INSTANCE_NAME build '--build-arg DITTO_UPLOADER_CONFIG="$UPLOADER_CFG"'
+dokku docker-options:add $INSTANCE_NAME build '--build-arg DITTO_DOMAIN="https://$INSTANCE_DOMAIN"'
+EOF
+
+REMOTE_NAME="tribes-$INSTANCE_NAME"
+if ! git remote get-url "$REMOTE_NAME" > /dev/null 2>&1; then
+    git remote add "$REMOTE_NAME" "dokku@$GLOBAL_DOMAIN:$INSTANCE_NAME"
+fi
+
+if git push $REMOTE_NAME ditto-as-a-service:main; then
+    ssh "root@$GLOBAL_DOMAIN" "dokku letsencrypt:enable $INSTANCE_NAME"
+fi
