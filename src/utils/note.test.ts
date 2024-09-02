@@ -10,6 +10,45 @@ Deno.test('parseNoteContent', () => {
   assertEquals(firstUrl, undefined);
 });
 
+Deno.test('parseNoteContent parses URLs', () => {
+  const { html } = parseNoteContent('check out my website: https://alexgleason.me', []);
+  assertEquals(html, 'check out my website: <a href="https://alexgleason.me">https://alexgleason.me</a>');
+});
+
+Deno.test('parseNoteContent parses bare URLs', () => {
+  const { html } = parseNoteContent('have you seen ditto.pub?', []);
+  assertEquals(html, 'have you seen <a href="http://ditto.pub">ditto.pub</a>?');
+});
+
+Deno.test('parseNoteContent parses mentions with apostrophes', () => {
+  const { html } = parseNoteContent(
+    `did you see nostr:nprofile1qqsqgc0uhmxycvm5gwvn944c7yfxnnxm0nyh8tt62zhrvtd3xkj8fhgprdmhxue69uhkwmr9v9ek7mnpw3hhytnyv4mz7un9d3shjqgcwaehxw309ahx7umywf5hvefwv9c8qtmjv4kxz7gpzemhxue69uhhyetvv9ujumt0wd68ytnsw43z7s3al0v's speech?`,
+    [{
+      id: '0461fcbecc4c3374439932d6b8f11269ccdb7cc973ad7a50ae362db135a474dd',
+      username: 'alex',
+      acct: 'alex@gleasonator.dev',
+      url: 'https://gleasonator.dev/@alex',
+    }],
+  );
+  assertEquals(
+    html,
+    'did you see <span class="h-card"><a class="u-url mention" href="https://gleasonator.dev/@alex" rel="ugc">@<span>alex@gleasonator.dev</span></a></span>&apos;s speech?',
+  );
+});
+
+Deno.test("parseNoteContent doesn't parse invalid nostr URIs", () => {
+  const { html } = parseNoteContent('nip19 has URIs like nostr:npub and nostr:nevent, etc.', []);
+  assertEquals(html, 'nip19 has URIs like nostr:npub and nostr:nevent, etc.');
+});
+
+Deno.test('parseNoteContent renders empty for non-profile nostr URIs', () => {
+  const { html } = parseNoteContent(
+    'nostr:nevent1qgsr9cvzwc652r4m83d86ykplrnm9dg5gwdvzzn8ameanlvut35wy3gpz3mhxue69uhhztnnwashymtnw3ezucm0d5qzqru8mkz2q4gzsxg99q7pdneyx7n8p5u0afe3ntapj4sryxxmg4gpcdvgce',
+    [],
+  );
+  assertEquals(html, '');
+});
+
 Deno.test('getMediaLinks', () => {
   const links = [
     { href: 'https://example.com/image.png' },
