@@ -34,6 +34,7 @@ export const uploaderMiddleware: AppMiddleware = async (c, next) => {
     case 'local':
       c.set('uploader', new DenoUploader({ baseUrl: Conf.mediaDomain, dir: Conf.uploadsDir }));
       break;
+    case 'nostr.build':
     case 'nostrbuild':
       c.set('uploader', new NostrBuildUploader({ endpoint: Conf.nostrbuildEndpoint, signer, fetch: fetchWorker }));
       break;
