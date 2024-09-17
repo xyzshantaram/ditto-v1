@@ -29,6 +29,7 @@
       "jsr:@soapbox/kysely-pglite@^0.0.1": "jsr:@soapbox/kysely-pglite@0.0.1",
       "jsr:@soapbox/stickynotes@^0.4.0": "jsr:@soapbox/stickynotes@0.4.0",
       "jsr:@std/assert@^0.213.1": "jsr:@std/assert@0.213.1",
+      "jsr:@std/assert@^0.217.0": "jsr:@std/assert@0.217.0",
       "jsr:@std/assert@^0.223.0": "jsr:@std/assert@0.223.0",
       "jsr:@std/assert@^0.224.0": "jsr:@std/assert@0.224.0",
       "jsr:@std/assert@^0.225.1": "jsr:@std/assert@0.225.3",
@@ -68,7 +69,6 @@
       "npm:comlink-async-generator": "npm:comlink-async-generator@0.0.1",
       "npm:comlink-async-generator@^0.0.1": "npm:comlink-async-generator@0.0.1",
       "npm:comlink@^4.4.1": "npm:comlink@4.4.1",
-      "npm:commander@12.1.0": "npm:commander@12.1.0",
       "npm:entities@^4.5.0": "npm:entities@4.5.0",
       "npm:fast-stable-stringify@^1.0.0": "npm:fast-stable-stringify@1.0.0",
       "npm:formdata-helper@^0.3.0": "npm:formdata-helper@0.3.0",
@@ -312,6 +312,9 @@
       "@std/assert@0.213.1": {
         "integrity": "24c28178b30c8e0782c18e8e94ea72b16282207569cdd10ffb9d1d26f2edebfe"
       },
+      "@std/assert@0.217.0": {
+        "integrity": "c98e279362ca6982d5285c3b89517b757c1e3477ee9f14eb2fdf80a45aaa9642"
+      },
       "@std/assert@0.223.0": {
         "integrity": "eb8d6d879d76e1cc431205bd346ed4d88dc051c6366365b1af47034b0670be24"
       },
@@ -442,6 +445,12 @@
         "integrity": "f187bf278a172752e02fcbacf6bd78a335ed320d080a7ed3a5a59c3e88abc673",
         "dependencies": [
           "jsr:@std/assert@^0.213.1"
+        ]
+      },
+      "@std/path@0.217.0": {
+        "integrity": "1217cc25534bca9a2f672d7fe7c6f356e4027df400c0e85c0ef3e4343bc67d11",
+        "dependencies": [
+          "jsr:@std/assert@^0.217.0"
         ]
       },
       "@std/path@1.0.0-rc.1": {
@@ -636,10 +645,6 @@
       },
       "commander@11.1.0": {
         "integrity": "sha512-yPVavfyCcRhmorC7rWlkHn15b4wDVgVmBA7kV4QVBsF7kv/9TKJAbAXVTxvTnwP8HHKjRCJDClKbciiYS7p0DQ==",
-        "dependencies": {}
-      },
-      "commander@12.1.0": {
-        "integrity": "sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==",
         "dependencies": {}
       },
       "cross-spawn@7.0.3": {
@@ -2030,7 +2035,6 @@
       "npm:@soapbox.pub/pglite@^0.2.10",
       "npm:comlink-async-generator@^0.0.1",
       "npm:comlink@^4.4.1",
-      "npm:commander@12.1.0",
       "npm:entities@^4.5.0",
       "npm:fast-stable-stringify@^1.0.0",
       "npm:formdata-helper@^0.3.0",
