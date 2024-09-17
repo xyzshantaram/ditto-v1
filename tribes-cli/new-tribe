@@ -31,9 +31,10 @@ wait_keypress
 ssh -T "root@$GLOBAL_DOMAIN" << EOF
 dokku apps:create $INSTANCE_NAME
 dokku postgres:link dittodb $INSTANCE_NAME
-dokku docker-options:add $INSTANCE_NAME build '--build-arg DITTO_NSEC="$NSEC"'
-dokku docker-options:add $INSTANCE_NAME build '--build-arg DITTO_UPLOADER_CONFIG="$UPLOADER_CFG"'
-dokku docker-options:add $INSTANCE_NAME build '--build-arg DITTO_DOMAIN="https://$INSTANCE_DOMAIN"'
+dokku config:set --no-restart $INSTANCE_NAME DITTO_NSEC="$NSEC"
+dokku config:set --no-restart $INSTANCE_NAME DITTO_UPLOADER="nostrbuild"
+dokku config:set --no-restart $INSTANCE_NAME NOSTRBUILD_ENDPOINT="https://nostr.build/api/v2/upload/files"
+dokku config:set $INSTANCE_NAME LOCAL_DOMAIN="https://$INSTANCE_DOMAIN"
 EOF
 
 REMOTE_NAME="tribes-$INSTANCE_NAME"
