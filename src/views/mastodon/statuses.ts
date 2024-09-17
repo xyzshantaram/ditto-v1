@@ -84,7 +84,12 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
 
   const imeta: string[][][] = event.tags
     .filter(([name]) => name === 'imeta')
-    .map(([_, ...entries]) => entries.map((entry) => entry.split(' ')));
+    .map(([_, ...entries]) =>
+      entries.map((entry) => {
+        const split = entry.split(' ');
+        return [split[0], split.splice(1).join(' ')];
+      })
+    );
 
   const media = imeta.length ? imeta : getMediaLinks(links);
 
@@ -120,9 +125,9 @@ async function renderStatus(event: DittoEvent, opts: RenderStatusOpts): Promise<
     pinned: Boolean(pinEvent),
     reblog: null,
     application: null,
-    media_attachments: media.map((m) => renderAttachment({ data: m })).filter((m): m is MastodonAttachment =>
-      Boolean(m)
-    ),
+    media_attachments: media
+      .map((m) => renderAttachment({ tags: m }))
+      .filter((m): m is MastodonAttachment => Boolean(m)),
     mentions,
     tags: [],
     emojis: renderEmojis(event),

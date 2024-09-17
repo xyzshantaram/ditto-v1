@@ -45,16 +45,16 @@ const DATABASE_URL = Deno.env.get('DATABASE_URL');
 if (DATABASE_URL) {
   vars.DATABASE_URL = await question('input', 'Database URL', DATABASE_URL);
 } else {
-  const database = await question('list', 'Which database do you want to use?', ['postgres', 'sqlite']);
-  if (database === 'sqlite') {
-    const path = await question('input', 'Path to SQLite database', 'data/db.sqlite3');
-    vars.DATABASE_URL = `sqlite://${path}`;
+  const database = await question('list', 'Which database do you want to use?', ['postgres', 'pglite']);
+  if (database === 'pglite') {
+    const path = await question('input', 'Path to PGlite data directory', 'data/pgdata');
+    vars.DATABASE_URL = `file://${path}`;
   }
   if (database === 'postgres') {
     const host = await question('input', 'Postgres host', 'localhost');
     const port = await question('input', 'Postgres port', '5432');
     const user = await question('input', 'Postgres user', 'ditto');
-    const password = await question('input', 'Postgres password', 'ditto');
+    const password = await question('password', 'Postgres password', true);
     const database = await question('input', 'Postgres database', 'ditto');
     vars.DATABASE_URL = `postgres://${user}:${password}@${host}:${port}/${database}`;
   }

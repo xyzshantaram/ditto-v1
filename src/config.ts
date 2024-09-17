@@ -1,5 +1,4 @@
-import url from 'node:url';
-
+import os from 'node:os';
 import * as dotenv from '@std/dotenv';
 import { getPublicKey, nip19 } from 'nostr-tools';
 import { z } from 'zod';
@@ -36,21 +35,11 @@ class Conf {
     }
     return this._pubkey;
   }
-  /** Ditto admin secret key as a Web Crypto key. */
-  static get cryptoKey(): Promise<CryptoKey> {
-    return crypto.subtle.importKey(
-      'raw',
-      Conf.seckey,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign', 'verify'],
-    );
-  }
-
+  /** Port to use when serving the HTTP server. */
   static get port(): number {
     return parseInt(Deno.env.get('PORT') || '4036');
   }
-
+  /** Relay URL to the Ditto server's relay. */
   static get relay(): `wss://${string}` | `ws://${string}` {
     const { protocol, host } = Conf.url;
     return `${protocol === 'https:' ? 'wss:' : 'ws:'}//${host}/relay`;
@@ -82,22 +71,17 @@ class Conf {
    * ```
    */
   static get databaseUrl(): string {
-    return Deno.env.get('DATABASE_URL') ?? 'sqlite://data/db.sqlite3';
+    return Deno.env.get('DATABASE_URL') ?? 'file://data/pgdata';
+  }
+  /** Database to use in tests. */
+  static get testDatabaseUrl(): string {
+    return Deno.env.get('TEST_DATABASE_URL') ?? 'memory://';
+  }
+  /** PGlite debug level. 0 disables logging. */
+  static get pgliteDebug(): 0 | 1 | 2 | 3 | 4 | 5 {
+    return Number(Deno.env.get('PGLITE_DEBUG') || 0) as 0 | 1 | 2 | 3 | 4 | 5;
   }
   static db = {
-    get url(): url.UrlWithStringQuery {
-      return url.parse(Conf.databaseUrl);
-    },
-    get dialect(): 'sqlite' | 'postgres' | undefined {
-      switch (Conf.db.url.protocol) {
-        case 'sqlite:':
-          return 'sqlite';
-        case 'postgres:':
-        case 'postgresql:':
-          return 'postgres';
-      }
-      return undefined;
-    },
     /** Database query timeout configurations. */
     timeouts: {
       /** Default query timeout when another setting isn't more specific. */
@@ -198,12 +182,6 @@ class Conf {
       'system',
     ];
   }
-  /** Proof-of-work configuration. */
-  static pow = {
-    get registrations(): number {
-      return Number(Deno.env.get('DITTO_POW_REGISTRATIONS') ?? 20);
-    },
-  };
   /** Domain of the Ditto server as a `URL` object, for easily grabbing the `hostname`, etc. */
   static get url(): URL {
     return new URL(Conf.localDomain);
@@ -216,21 +194,6 @@ class Conf {
   static get sentryDsn(): string | undefined {
     return Deno.env.get('SENTRY_DSN');
   }
-  /** SQLite settings. */
-  static sqlite = {
-    /**
-     * Number of bytes to use for memory-mapped IO.
-     * https://www.sqlite.org/pragma.html#pragma_mmap_size
-     */
-    get mmapSize(): number {
-      const value = Deno.env.get('SQLITE_MMAP_SIZE');
-      if (value) {
-        return Number(value);
-      } else {
-        return 1024 * 1024 * 1024;
-      }
-    },
-  };
   /** Postgres settings. */
   static pg = {
     /** Number of connections to use in the pool. */
@@ -258,9 +221,21 @@ class Conf {
       'i',
     );
   }
+  /** User-Agent to use when fetching link previews. Pretend to be Facebook by default. */
+  static get fetchUserAgent(): string {
+    return Deno.env.get('DITTO_FETCH_USER_AGENT') ?? 'facebookexternalhit';
+  }
   /** Path to the custom policy module. Must be an absolute path, https:, npm:, or jsr: URI. */
   static get policy(): string {
     return Deno.env.get('DITTO_POLICY') || new URL('../data/policy.ts', import.meta.url).pathname;
+  }
+  /** Absolute path to the data directory used by Ditto. */
+  static get dataDir(): string {
+    return Deno.env.get('DITTO_DATA_DIR') || new URL('../data', import.meta.url).pathname;
+  }
+  /** Absolute path of the Deno directory. */
+  static get denoDir(): string {
+    return Deno.env.get('DENO_DIR') || `${os.userInfo().homedir}/.cache/deno`;
   }
   /** Whether zap splits should be enabled. */
   static get zapSplitsEnabled(): boolean {

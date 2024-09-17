@@ -1,27 +1,17 @@
 // deno-lint-ignore-file require-await
 
-import { NDatabase, NPostgres } from '@nostrify/db';
-import {
-  NIP50,
-  NKinds,
-  NostrEvent,
-  NostrFilter,
-  NostrRelayCLOSED,
-  NostrRelayEOSE,
-  NostrRelayEVENT,
-  NSchema as n,
-  NStore,
-} from '@nostrify/nostrify';
+import { NPostgres, NPostgresSchema } from '@nostrify/db';
+import { NIP50, NKinds, NostrEvent, NostrFilter, NSchema as n } from '@nostrify/nostrify';
 import { Stickynotes } from '@soapbox/stickynotes';
+import { Kysely, SelectQueryBuilder } from 'kysely';
 import { nip27 } from 'nostr-tools';
 
-import { Conf } from '@/config.ts';
-import { DittoDatabase } from '@/db/DittoDB.ts';
-import { dbEventCounter } from '@/metrics.ts';
+import { DittoTables } from '@/db/DittoTables.ts';
+import { dbEventsCounter } from '@/metrics.ts';
 import { RelayError } from '@/RelayError.ts';
-import { purifyEvent } from '@/storages/hydrate.ts';
 import { isNostrId, isURL } from '@/utils.ts';
 import { abortError } from '@/utils/abort.ts';
+import { purifyEvent } from '@/utils/purify.ts';
 
 /** Function to decide whether or not to index a tag. */
 type TagCondition = ({ event, count, value }: {
@@ -30,9 +20,18 @@ type TagCondition = ({ event, count, value }: {
   value: string;
 }) => boolean;
 
-/** SQLite database storage adapter for Nostr events. */
-class EventsDB implements NStore {
-  private store: NDatabase | NPostgres;
+/** Options for the EventsDB store. */
+interface EventsDBOpts {
+  /** Kysely instance to use. */
+  kysely: Kysely<DittoTables>;
+  /** Pubkey of the admin account. */
+  pubkey: string;
+  /** Timeout in milliseconds for database queries. */
+  timeout: number;
+}
+
+/** SQL database storage adapter for Nostr events. */
+class EventsDB extends NPostgres {
   private console = new Stickynotes('ditto:db:events');
 
   /** Conditions for when to index certain tags. */
@@ -52,28 +51,18 @@ class EventsDB implements NStore {
     't': ({ event, count, value }) => (event.kind === 1985 ? count < 20 : count < 5) && value.length < 50,
   };
 
-  constructor(private database: DittoDatabase) {
-    const { dialect, kysely } = database;
-
-    if (dialect === 'postgres') {
-      this.store = new NPostgres(kysely, {
-        indexTags: EventsDB.indexTags,
-        indexSearch: EventsDB.searchText,
-      });
-    } else {
-      this.store = new NDatabase(kysely, {
-        fts: 'sqlite',
-        indexTags: EventsDB.indexTags,
-        searchText: EventsDB.searchText,
-      });
-    }
+  constructor(private opts: EventsDBOpts) {
+    super(opts.kysely, {
+      indexTags: EventsDB.indexTags,
+      indexSearch: EventsDB.searchText,
+    });
   }
 
   /** Insert an event (and its tags) into the database. */
   async event(event: NostrEvent, opts: { signal?: AbortSignal; timeout?: number } = {}): Promise<void> {
     event = purifyEvent(event);
     this.console.debug('EVENT', JSON.stringify(event));
-    dbEventCounter.inc({ kind: event.kind });
+    dbEventsCounter.inc({ kind: event.kind });
 
     if (await this.isDeletedAdmin(event)) {
       throw new RelayError('blocked', 'event deleted by admin');
@@ -82,7 +71,7 @@ class EventsDB implements NStore {
     await this.deleteEventsAdmin(event);
 
     try {
-      await this.store.event(event, { ...opts, timeout: opts.timeout ?? Conf.db.timeouts.default });
+      await super.event(event, { ...opts, timeout: opts.timeout ?? this.opts.timeout });
     } catch (e) {
       if (e.message === 'Cannot add a deleted event') {
         throw new RelayError('blocked', 'event deleted by user');
@@ -97,7 +86,7 @@ class EventsDB implements NStore {
   /** Check if an event has been deleted by the admin. */
   private async isDeletedAdmin(event: NostrEvent): Promise<boolean> {
     const filters: NostrFilter[] = [
-      { kinds: [5], authors: [Conf.pubkey], '#e': [event.id], limit: 1 },
+      { kinds: [5], authors: [this.opts.pubkey], '#e': [event.id], limit: 1 },
     ];
 
     if (NKinds.replaceable(event.kind) || NKinds.parameterizedReplaceable(event.kind)) {
@@ -105,7 +94,7 @@ class EventsDB implements NStore {
 
       filters.push({
         kinds: [5],
-        authors: [Conf.pubkey],
+        authors: [this.opts.pubkey],
         '#a': [`${event.kind}:${event.pubkey}:${d}`],
         since: event.created_at,
         limit: 1,
@@ -118,7 +107,7 @@ class EventsDB implements NStore {
 
   /** The DITTO_NSEC can delete any event from the database. NDatabase already handles user deletions. */
   private async deleteEventsAdmin(event: NostrEvent): Promise<void> {
-    if (event.kind === 5 && event.pubkey === Conf.pubkey) {
+    if (event.kind === 5 && event.pubkey === this.opts.pubkey) {
       const ids = new Set(event.tags.filter(([name]) => name === 'e').map(([_name, value]) => value));
       const addrs = new Set(event.tags.filter(([name]) => name === 'a').map(([_name, value]) => value));
 
@@ -155,12 +144,37 @@ class EventsDB implements NStore {
     }
   }
 
-  /** Stream events from the database. */
-  req(
-    filters: NostrFilter[],
-    opts: { signal?: AbortSignal } = {},
-  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
-    return this.store.req(filters, opts);
+  protected getFilterQuery(trx: Kysely<NPostgresSchema>, filter: NostrFilter) {
+    if (filter.search) {
+      const tokens = NIP50.parseInput(filter.search);
+
+      let query = super.getFilterQuery(trx, {
+        ...filter,
+        search: tokens.filter((t) => typeof t === 'string').join(' '),
+      }) as SelectQueryBuilder<DittoTables, 'nostr_events', Pick<DittoTables['nostr_events'], keyof NostrEvent>>;
+
+      const data = tokens.filter((t) => typeof t === 'object').reduce(
+        (acc, t) => acc.set(t.key, t.value),
+        new Map<string, string>(),
+      );
+
+      const domain = data.get('domain');
+      const language = data.get('language');
+
+      if (domain) {
+        query = query
+          .innerJoin('pubkey_domains', 'nostr_events.pubkey', 'pubkey_domains.pubkey')
+          .where('pubkey_domains.domain', '=', domain);
+      }
+
+      if (language) {
+        query = query.where('language', '=', language);
+      }
+
+      return query;
+    }
+
+    return super.getFilterQuery(trx, filter);
   }
 
   /** Get events for filters from the database. */
@@ -185,32 +199,28 @@ class EventsDB implements NStore {
     }
 
     if (opts.signal?.aborted) return Promise.resolve([]);
-    if (!filters.length) return Promise.resolve([]);
 
     this.console.debug('REQ', JSON.stringify(filters));
 
-    return this.store.query(filters, { ...opts, timeout: opts.timeout ?? Conf.db.timeouts.default });
+    return super.query(filters, { ...opts, timeout: opts.timeout ?? this.opts.timeout });
   }
 
   /** Delete events based on filters from the database. */
   async remove(filters: NostrFilter[], opts: { signal?: AbortSignal; timeout?: number } = {}): Promise<void> {
-    if (!filters.length) return Promise.resolve();
     this.console.debug('DELETE', JSON.stringify(filters));
-
-    return this.store.remove(filters, { ...opts, timeout: opts.timeout ?? Conf.db.timeouts.default });
+    return super.remove(filters, { ...opts, timeout: opts.timeout ?? this.opts.timeout });
   }
 
   /** Get number of events that would be returned by filters. */
   async count(
     filters: NostrFilter[],
     opts: { signal?: AbortSignal; timeout?: number } = {},
-  ): Promise<{ count: number; approximate: boolean }> {
+  ): Promise<{ count: number; approximate: any }> {
     if (opts.signal?.aborted) return Promise.reject(abortError());
-    if (!filters.length) return Promise.resolve({ count: 0, approximate: false });
 
     this.console.debug('COUNT', JSON.stringify(filters));
 
-    return this.store.count(filters, { ...opts, timeout: opts.timeout ?? Conf.db.timeouts.default });
+    return super.count(filters, { ...opts, timeout: opts.timeout ?? this.opts.timeout });
   }
 
   /** Return only the tags that should be indexed. */
@@ -273,40 +283,11 @@ class EventsDB implements NStore {
     return tags.map(([_tag, value]) => value).join('\n');
   }
 
-  /** Converts filters to more performant, simpler filters that are better for SQLite. */
+  /** Converts filters to more performant, simpler filters. */
   async expandFilters(filters: NostrFilter[]): Promise<NostrFilter[]> {
     filters = structuredClone(filters);
 
     for (const filter of filters) {
-      if (filter.search) {
-        const tokens = NIP50.parseInput(filter.search);
-
-        const domain = (tokens.find((t) =>
-          typeof t === 'object' && t.key === 'domain'
-        ) as { key: 'domain'; value: string } | undefined)?.value;
-
-        if (domain) {
-          const query = this.database.kysely
-            .selectFrom('pubkey_domains')
-            .select('pubkey')
-            .where('domain', '=', domain);
-
-          if (filter.authors) {
-            query.where('pubkey', 'in', filter.authors);
-          }
-
-          const pubkeys = await query
-            .execute()
-            .then((rows) =>
-              rows.map((row) => row.pubkey)
-            );
-
-          filter.authors = pubkeys;
-        }
-
-        filter.search = tokens.filter((t) => typeof t === 'string').join(' ');
-      }
-
       if (filter.kinds) {
         // Ephemeral events are not stored, so don't bother querying for them.
         // If this results in an empty kinds array, NDatabase will remove the filter before querying and return no results.
@@ -315,6 +296,10 @@ class EventsDB implements NStore {
     }
 
     return filters;
+  }
+
+  async transaction(callback: (store: NPostgres, kysely: Kysely<any>) => Promise<void>): Promise<void> {
+    return super.transaction((store, kysely) => callback(store, kysely as unknown as Kysely<DittoTables>));
   }
 }
 

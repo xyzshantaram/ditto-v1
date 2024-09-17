@@ -1,14 +1,15 @@
 import { NKinds, NostrEvent, NSchema as n } from '@nostrify/nostrify';
 import Debug from '@soapbox/stickynotes/debug';
+import ISO6391 from 'iso-639-1';
 import { Kysely, sql } from 'kysely';
+import lande from 'lande';
 import { LRUCache } from 'lru-cache';
 import { z } from 'zod';
 
 import { Conf } from '@/config.ts';
-import { DittoDB } from '@/db/DittoDB.ts';
-import { deleteAttachedMedia } from '@/db/unattached-media.ts';
+import { DittoTables } from '@/db/DittoTables.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
-import { pipelineEventCounter, policyEventCounter } from '@/metrics.ts';
+import { pipelineEventsCounter, policyEventsCounter } from '@/metrics.ts';
 import { RelayError } from '@/RelayError.ts';
 import { AdminSigner } from '@/signers/AdminSigner.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
@@ -16,11 +17,11 @@ import { Storages } from '@/storages.ts';
 import { eventAge, parseNip05, Time } from '@/utils.ts';
 import { policyWorker } from '@/workers/policy.ts';
 import { verifyEventWorker } from '@/workers/verify.ts';
+import { getAmount } from '@/utils/bolt11.ts';
 import { nip05Cache } from '@/utils/nip05.ts';
+import { purifyEvent } from '@/utils/purify.ts';
 import { updateStats } from '@/utils/stats.ts';
 import { getTagSet } from '@/utils/tags.ts';
-import { getAmount } from '@/utils/bolt11.ts';
-import { DittoTables } from '@/db/DittoTables.ts';
 
 const debug = Debug('ditto:pipeline');
 
@@ -40,7 +41,7 @@ async function handleEvent(event: DittoEvent, signal: AbortSignal): Promise<void
   if (encounterEvent(event)) return;
   if (await existsInDB(event)) return;
   debug(`NostrEvent<${event.kind}> ${event.id}`);
-  pipelineEventCounter.inc({ kind: event.kind });
+  pipelineEventsCounter.inc({ kind: event.kind });
 
   if (event.kind !== 24133) {
     await policyFilter(event);
@@ -54,14 +55,14 @@ async function handleEvent(event: DittoEvent, signal: AbortSignal): Promise<void
     throw new RelayError('blocked', 'user is disabled');
   }
 
-  const { kysely } = await DittoDB.getInstance();
+  const kysely = await Storages.kysely();
 
+  await storeEvent(purifyEvent(event), signal);
   await Promise.all([
-    storeEvent(event, signal),
     handleZaps(kysely, event),
     parseMetadata(event, signal),
+    setLanguage(event),
     generateSetEvents(event),
-    processMedia(event),
     streamOut(event),
   ]);
 }
@@ -71,7 +72,7 @@ async function policyFilter(event: NostrEvent): Promise<void> {
 
   try {
     const result = await policyWorker.call(event);
-    policyEventCounter.inc({ ok: String(result[2]) });
+    policyEventsCounter.inc({ ok: String(result[2]) });
     debug(JSON.stringify(result));
     RelayError.assert(result);
   } catch (e) {
@@ -106,7 +107,7 @@ async function existsInDB(event: DittoEvent): Promise<boolean> {
 async function hydrateEvent(event: DittoEvent, signal: AbortSignal): Promise<void> {
   await hydrateEvents({ events: [event], store: await Storages.db(), signal });
 
-  const { kysely } = await DittoDB.getInstance();
+  const kysely = await Storages.kysely();
   const domain = await kysely
     .selectFrom('pubkey_domains')
     .select('domain')
@@ -120,10 +121,11 @@ async function hydrateEvent(event: DittoEvent, signal: AbortSignal): Promise<voi
 async function storeEvent(event: DittoEvent, signal?: AbortSignal): Promise<undefined> {
   if (NKinds.ephemeral(event.kind)) return;
   const store = await Storages.db();
-  const { kysely } = await DittoDB.getInstance();
 
-  await updateStats({ event, store, kysely }).catch(debug);
-  await store.event(event, { signal });
+  await store.transaction(async (store, kysely) => {
+    await updateStats({ event, store, kysely });
+    await store.event(event, { signal });
+  });
 }
 
 /** Parse kind 0 metadata and track indexes in the database. */
@@ -134,41 +136,64 @@ async function parseMetadata(event: NostrEvent, signal: AbortSignal): Promise<vo
   const metadata = n.json().pipe(n.metadata()).catch({}).safeParse(event.content);
   if (!metadata.success) return;
 
+  const kysely = await Storages.kysely();
+
   // Get nip05.
-  const { nip05 } = metadata.data;
-  if (!nip05) return;
+  const { name, nip05 } = metadata.data;
+  const result = nip05 ? await nip05Cache.fetch(nip05, { signal }).catch(() => undefined) : undefined;
 
-  // Fetch nip05.
-  const result = await nip05Cache.fetch(nip05, { signal }).catch(() => undefined);
-  if (!result) return;
-
-  // Ensure pubkey matches event.
-  const { pubkey } = result;
-  if (pubkey !== event.pubkey) return;
-
-  // Track pubkey domain.
+  // Populate author_search.
   try {
-    const { kysely } = await DittoDB.getInstance();
-    const { domain } = parseNip05(nip05);
+    const search = result?.pubkey === event.pubkey ? [name, nip05].filter(Boolean).join(' ').trim() : name ?? '';
 
-    await sql`
-    INSERT INTO pubkey_domains (pubkey, domain, last_updated_at)
-    VALUES (${pubkey}, ${domain}, ${event.created_at})
-    ON CONFLICT(pubkey) DO UPDATE SET
-      domain = excluded.domain,
-      last_updated_at = excluded.last_updated_at
-    WHERE excluded.last_updated_at > pubkey_domains.last_updated_at
-    `.execute(kysely);
-  } catch (_e) {
+    if (search) {
+      await kysely.insertInto('author_search')
+        .values({ pubkey: event.pubkey, search })
+        .onConflict((oc) => oc.column('pubkey').doUpdateSet({ search }))
+        .execute();
+    }
+  } catch {
     // do nothing
+  }
+
+  if (nip05 && result && result.pubkey === event.pubkey) {
+    // Track pubkey domain.
+    try {
+      const { domain } = parseNip05(nip05);
+
+      await sql`
+      INSERT INTO pubkey_domains (pubkey, domain, last_updated_at)
+      VALUES (${event.pubkey}, ${domain}, ${event.created_at})
+      ON CONFLICT(pubkey) DO UPDATE SET
+        domain = excluded.domain,
+        last_updated_at = excluded.last_updated_at
+      WHERE excluded.last_updated_at > pubkey_domains.last_updated_at
+      `.execute(kysely);
+    } catch (_e) {
+      // do nothing
+    }
   }
 }
 
-/** Delete unattached media entries that are attached to the event. */
-function processMedia({ tags, pubkey, user }: DittoEvent) {
-  if (user) {
-    const urls = getTagSet(tags, 'media');
-    return deleteAttachedMedia(pubkey, [...urls]);
+/** Update the event in the database and set its language. */
+async function setLanguage(event: NostrEvent): Promise<void> {
+  const [topResult] = lande(event.content);
+
+  if (topResult) {
+    const [iso6393, confidence] = topResult;
+    const locale = new Intl.Locale(iso6393);
+
+    if (confidence >= 0.95 && ISO6391.validate(locale.language)) {
+      const kysely = await Storages.kysely();
+      try {
+        await kysely.updateTable('nostr_events')
+          .set('language', locale.language)
+          .where('id', '=', event.id)
+          .execute();
+      } catch {
+        // do nothing
+      }
+    }
   }
 }
 

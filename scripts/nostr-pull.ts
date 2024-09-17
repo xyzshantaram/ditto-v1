@@ -6,11 +6,9 @@
 import { NostrEvent, NRelay1, NSchema } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
-import { DittoDB } from '@/db/DittoDB.ts';
-import { EventsDB } from '@/storages/EventsDB.ts';
+import { Storages } from '@/storages.ts';
 
-const db = await DittoDB.getInstance();
-const eventsDB = new EventsDB(db);
+const store = await Storages.db();
 
 interface ImportEventsOpts {
   profilesOnly: boolean;
@@ -21,13 +19,25 @@ const importUsers = async (
   authors: string[],
   relays: string[],
   opts?: Partial<ImportEventsOpts>,
-  doEvent: DoEvent = async (event: NostrEvent) => await eventsDB.event(event),
+  doEvent: DoEvent = async (event: NostrEvent) => await store.event(event),
 ) => {
   // Kind 0s + follow lists.
   const profiles: Record<string, Record<number, NostrEvent>> = {};
   // Kind 1s.
   const notes = new Set<string>();
   const { profilesOnly = false } = opts || {};
+
+  const put = async (event: NostrEvent) => {
+    try {
+      await doEvent(event);
+    } catch (error) {
+      if (error.message.includes('violates unique constraint')) {
+        console.warn(`Skipping existing event ${event.id}...`);
+      } else {
+        console.error(error);
+      }
+    }
+  };
 
   await Promise.all(relays.map(async (relay) => {
     if (!relay.startsWith('wss://')) console.error(`Invalid relay url ${relay}`);
@@ -49,7 +59,7 @@ const importUsers = async (
         if (kind === 1 && !notes.has(event.id)) {
           // add the event to eventsDB only if it has not been found already.
           notes.add(event.id);
-          await doEvent(event);
+          await put(event);
           return;
         }
 
@@ -64,7 +74,7 @@ const importUsers = async (
   for (const user in profiles) {
     const profile = profiles[user];
     for (const kind in profile) {
-      await doEvent(profile[kind]);
+      await put(profile[kind]);
     }
 
     let name = user;
