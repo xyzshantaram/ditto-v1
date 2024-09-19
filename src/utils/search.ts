@@ -11,19 +11,22 @@ export async function getPubkeysBySearch(
 
   let query = kysely
     .selectFrom('author_search')
+    .leftJoin('author_stats', 'author_stats.pubkey', 'author_search.pubkey')
     .select((eb) => [
-      'pubkey',
+      'author_search.pubkey',
       'search',
       eb.fn('word_similarity', [sql`${q}`, 'search']).as('sml'),
+      eb.fn.coalesce('author_stats.followers_count', sql<number>`0`).as('followers_count'),
     ])
     .where(() => sql`${q} <% search`)
+    .orderBy(['followers_count desc'])
     .orderBy(['sml desc', 'search'])
     .limit(limit);
 
   const pubkeys = new Set((await query.execute()).map(({ pubkey }) => pubkey));
 
   if (followedPubkeys.size > 0) {
-    query = query.where('pubkey', 'in', [...followedPubkeys]);
+    query = query.where('author_search.pubkey', 'in', [...followedPubkeys]);
   }
 
   const followingPubkeys = new Set((await query.execute()).map(({ pubkey }) => pubkey));
