@@ -1,8 +1,13 @@
 import { register } from 'prom-client';
 
 import { AppController } from '@/app.ts';
-import { dbAvailableConnectionsGauge, dbPoolSizeGauge } from '@/metrics.ts';
+import { githash } from '@/git.ts';
+import { dbAvailableConnectionsGauge, dbPoolSizeGauge, deploymentsCounter } from '@/metrics.ts';
 import { Storages } from '@/storages.ts';
+
+if (githash) {
+  deploymentsCounter.inc({ git_hash: githash });
+}
 
 /** Prometheus/OpenMetrics controller. */
 export const metricsController: AppController = async (c) => {

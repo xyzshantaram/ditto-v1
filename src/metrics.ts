@@ -1,5 +1,11 @@
 import { Counter, Gauge, Histogram } from 'prom-client';
 
+export const deploymentsCounter = new Counter({
+  name: 'ditto_deployments_total',
+  help: 'Updated on each deployment',
+  labelNames: ['git_hash'],
+});
+
 export const httpRequestsCounter = new Counter({
   name: 'ditto_http_requests_total',
   help: 'Total number of HTTP requests',
