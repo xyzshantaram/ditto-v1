@@ -136,7 +136,12 @@ async function storeEvent(event: DittoEvent, signal?: AbortSignal): Promise<unde
   const store = await Storages.db();
 
   await store.transaction(async (store, kysely) => {
-    await updateStats({ event, store, kysely }).catch((e) => console.error(e));
+    await sql`SAVEPOINT update_stats_savepoint`.execute(kysely);
+
+    await updateStats({ event, store, kysely }).catch(async (e) => {
+      await sql`ROLLBACK TO SAVEPOINT update_stats_savepoint`.execute(kysely);
+      console.error(e);
+    });
     await store.event(event, { signal });
   });
 }
