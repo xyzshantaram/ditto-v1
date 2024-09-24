@@ -6,7 +6,7 @@ import { dbAvailableConnectionsGauge, dbPoolSizeGauge, deploymentsCounter } from
 import { Storages } from '@/storages.ts';
 
 if (githash) {
-  deploymentsCounter.inc({ git_hash: githash });
+  deploymentsCounter.inc({ git_hash: githash }); //test
 }
 
 /** Prometheus/OpenMetrics controller. */
