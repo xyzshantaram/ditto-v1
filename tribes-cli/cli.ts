@@ -27,5 +27,10 @@ async function main() {
 }
 
 if (import.meta.main) {
-  await main();
+  try {
+    await main();
+  } catch (e) {
+    console.error('ERROR:', e.message);
+    Deno.exit(1);
+  }
 }

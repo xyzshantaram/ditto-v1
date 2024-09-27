@@ -12,26 +12,22 @@ export class Command {
     this.description = description;
   }
 
-  get subcommandCount() {
-    return Object.keys(this.commands).length;
-  }
-
   isValidSubcommand(key: string): boolean {
     return Object.keys(this.commands).includes(key.toString());
   }
 
   getSubcommand(subcommand: string | number) {
     if (!subcommand) {
-      throw new Error('tribes-cli: error: invalid subcommand');
+      throw new Error('tribes-cli: invalid subcommand');
     }
     if (typeof subcommand === 'number') {
-      throw new Error('tribes-cli: error: subcommand cannot be a number');
+      throw new Error('tribes-cli: subcommand cannot be a number');
     }
 
     if (this.isValidSubcommand(subcommand)) {
       return this.commands[subcommand];
     } else {
-      throw new Error(`tribes-cli: error: ${subcommand} is not a valid subcommand`);
+      throw new Error(`tribes-cli: ${subcommand} is not a valid subcommand`);
     }
   }
 
@@ -42,7 +38,7 @@ export class Command {
 
   subcommand(name: string, command: Command) {
     if (this.isValidSubcommand(name)) {
-      throw new Error(`tribes-cli: error: ${name} is already a subcommand.`);
+      throw new Error(`tribes-cli: ${name} is already a subcommand.`);
     }
     this.commands[name] = command;
     return this;
