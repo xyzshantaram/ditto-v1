@@ -1,13 +1,5 @@
-import { parseArgs as stdParseArgs } from '@std/cli';
 import { cleanArg, Command } from './mod.ts';
-
-export const setupCli = (command: Command, parserArgs: Partial<ParsedSubcommand> = {}) => {
-  parserArgs = parseSubcommand(command, parserArgs);
-  const parsed = stdParseArgs(Deno.args, parserArgs);
-  return { parsed, parserArgs };
-};
-
-export type ParsedArgs = ReturnType<typeof setupCli>['parsed'];
+export type ParsedArgs = ReturnType<Command['parse']>['parsed'];
 
 export interface ParsedSubcommand {
   string: string[];

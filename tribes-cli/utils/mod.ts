@@ -1,5 +1,5 @@
 import { join } from '@std/path';
-import { ParsedArgs, setupCli } from './parsing.ts';
+import { ParsedArgs } from './parsing.ts';
 import { Command } from './command.ts';
 
 export const defaultIdentityFile = async () => {
@@ -27,5 +27,5 @@ export const cleanArg = (arg: string) => {
   return arg.replace(/^--?/g, '');
 };
 
-export { Command, setupCli };
+export { Command };
 export type { ParsedArgs };

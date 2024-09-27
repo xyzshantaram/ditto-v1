@@ -1,27 +1,22 @@
 import { tribe } from './tribe/mod.ts';
 import { remote } from './remote/mod.ts';
-import { Command, defaultIdentityFile, setupCli } from './utils/mod.ts';
+import { Command, defaultIdentityFile } from './utils/mod.ts';
 
 async function main() {
   const tribes = new Command('tribes-cli', 'Create and manage Ditto Tribes servers.')
-    .subcommand('tribe', tribe)
-    .subcommand('remote', remote);
+    .subcommand(tribe)
+    .subcommand(remote)
+    .option('-i --identity-file', {
+      description: 'The ssh identity file to use. Defaults to ~/.ssh/id_rsa.',
+      default: await defaultIdentityFile(),
+    });
 
-  const { parsed } = setupCli(tribes, {
-    string: ['identity-file'],
-    default: {
-      'identity-file': await defaultIdentityFile(),
-    },
-  });
-
-  const [s, v] = parsed._;
+  const { parsed } = tribes.parse(Deno.args);
+  const [s, v] = parsed._.slice(1);
 
   let cmd = tribes;
-  if (s && !v) {
-    cmd = tribes.getSubcommand(s);
-  } else if (s && v) {
-    cmd = tribes.getSubcommand(s).getSubcommand(v);
-  }
+  if (s) cmd = tribes.getSubcommand(s);
+  if (v) cmd = cmd.getSubcommand(v);
 
   await cmd.action(parsed);
 }
