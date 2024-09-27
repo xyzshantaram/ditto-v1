@@ -2,5 +2,6 @@
  * Destroy a tribe. Non-reversible.
  */
 
-export const destroy = () => {
-};
+import { Command } from '../utils/mod.ts';
+
+export const destroy = new Command('destroy', 'Destroy a tribe. NON-REVERSIBLE!');

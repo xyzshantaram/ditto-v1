@@ -1,50 +1,31 @@
-import { parseArgs } from '@std/cli';
 import { tribe } from './tribe/mod.ts';
 import { remote } from './remote/mod.ts';
-import { ParsedSubcommand, parseSubcommand } from './utils.ts';
+import { Command, defaultIdentityFile, setupCli } from './utils/mod.ts';
 
-const commands = {
-  tribe,
-  remote,
-};
+async function main() {
+  const tribes = new Command('tribes-cli', 'Create and manage Ditto Tribes servers.')
+    .subcommand('tribe', tribe)
+    .subcommand('remote', remote);
 
-let parserArgs: Partial<ParsedSubcommand> = {
-  string: ['identity-file'],
-};
+  const { parsed } = setupCli(tribes, {
+    string: ['identity-file'],
+    default: {
+      'identity-file': await defaultIdentityFile(),
+    },
+  });
 
-for (const [_name, body] of Object.entries(commands)) {
-  for (const subcommand in body) {
-    const s = body[subcommand];
-    parserArgs = parseSubcommand(s, parserArgs);
+  const [s, v] = parsed._;
+
+  let cmd = tribes;
+  if (s && !v) {
+    cmd = tribes.getSubcommand(s);
+  } else if (s && v) {
+    cmd = tribes.getSubcommand(s).getSubcommand(v);
   }
 
-  // TODO: construct a help string here
+  await cmd.action(parsed);
 }
 
-const parsed = parseArgs(Deno.args, parserArgs);
-console.log(parserArgs);
-console.log(parsed);
-
-const [subcommand, verb] = parsed._;
-
-const isValidSubcommand = (key: string): key is keyof typeof commands => {
-  return Object.keys(commands).includes(key.toString());
-};
-
-if (typeof subcommand === 'number') {
-  console.error('Error: subcommand cannot be a number');
-  Deno.exit(1);
-}
-
-if (!subcommand) {
-  // todo: output help, probably
-} else if (subcommand && !verb) {
-  // todo: output help only for specific subcommand
-} else {
-  if (isValidSubcommand(subcommand)) {
-    console.log(commands[subcommand]);
-  } else {
-    console.error(`Error: ${subcommand} is not a valid subcommand`);
-    Deno.exit(1);
-  }
+if (import.meta.main) {
+  await main();
 }

@@ -1,9 +1,5 @@
-import { Subcommand } from '../utils.ts';
+import { Command } from '../utils/mod.ts';
 import { init } from './init.ts';
 
-export const remote: Record<string, Subcommand> = {
-  init: {
-    action: init,
-    description: 'Initialise a brand new Ditto remote.',
-  },
-};
+export const remote = new Command('remote', 'Manage a Ditto Tribes server')
+  .subcommand('init', init);
