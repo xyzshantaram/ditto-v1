@@ -1,33 +1,21 @@
-import { join } from '@std/path';
+import { parseArgs as stdParseArgs } from '@std/cli';
+import { cleanArg, Command } from './mod.ts';
 
-let identity = '';
-export const defaultIdentityFile = async () => {
-  if (!identity) {
-    const home = Deno.env.get('HOME');
-    if (home) return identity = await Deno.readTextFile(join(home, '.ssh', 'id_rsa'));
+export const setupCli = (commands: Command, parserArgs: Partial<ParsedSubcommand> = {}) => {
+  for (const [_name, body] of Object.entries(commands)) {
+    for (const subcommand in body) {
+      const s = body[subcommand];
+      parserArgs = parseSubcommand(s, parserArgs);
+    }
   }
-  return '';
+
+  const parsed = stdParseArgs(Deno.args, parserArgs);
+  return {
+    parsed,
+  };
 };
 
-export interface Subcommand {
-  action: Function;
-  description: string;
-  options?: Record<
-    string,
-    & { description: string }
-    & ({
-      default?: string;
-    } | {
-      bool: true;
-      default?: boolean;
-    })
-  >;
-  commands?: Record<string, Subcommand>;
-}
-
-export const cleanArg = (arg: string) => {
-  return arg.replace(/^--?/g, '');
-};
+export type ParsedArgs = ReturnType<typeof setupCli>['parsed'];
 
 export interface ParsedSubcommand {
   string: string[];
@@ -45,7 +33,7 @@ export const defaultParsedSubcommand = (): ParsedSubcommand => {
   };
 };
 
-export const parseSubcommand = (command: Subcommand, existing?: Partial<ParsedSubcommand>): ParsedSubcommand => {
+export const parseSubcommand = (command: Command, existing?: Partial<ParsedSubcommand>): ParsedSubcommand => {
   const res = Object.assign(defaultParsedSubcommand(), existing);
 
   if (command.options) {
