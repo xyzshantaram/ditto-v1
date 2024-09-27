@@ -2049,6 +2049,7 @@
       "npm:linkify-string@^4.1.1",
       "npm:linkifyjs@^4.1.1",
       "npm:lru-cache@^10.2.2",
+      "npm:node-ssh@13.2.0",
       "npm:nostr-relaypool2@0.6.34",
       "npm:nostr-tools@2.5.1",
       "npm:nostr-wasm@^0.1.0",
