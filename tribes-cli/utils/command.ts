@@ -1,4 +1,6 @@
 import { Option, ParsedArgs } from './mod.ts';
+import { parseArgs } from '@std/cli';
+import { parseSubcommand } from './parsing.ts';
 
 export class Command {
   name: string;
@@ -36,16 +38,22 @@ export class Command {
     return this;
   }
 
-  subcommand(name: string, command: Command) {
-    if (this.isValidSubcommand(name)) {
-      throw new Error(`tribes-cli: ${name} is already a subcommand.`);
+  subcommand(command: Command) {
+    if (this.isValidSubcommand(command.name)) {
+      throw new Error(`tribes-cli: ${command.name} is already a subcommand.`);
     }
-    this.commands[name] = command;
+    this.commands[command.name] = command;
     return this;
   }
 
   option(fmt: string, option: Option) {
     this.options[fmt] = option;
     return this;
+  }
+
+  parse(args: string[]) {
+    const parserArgs = parseSubcommand(this, {});
+    const parsed = parseArgs(Deno.args, parserArgs);
+    return { parsed, parserArgs };
   }
 }
