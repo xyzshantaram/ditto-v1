@@ -5,7 +5,7 @@ import { parseSubcommand } from './parsing.ts';
 export class Command {
   name: string;
   description: string;
-  action: (args: ParsedArgs) => void | Promise<void> = (_) => {};
+  private action: (args: ParsedArgs) => void | Promise<void> = (_) => {};
   options: Record<string, Option> = {};
   commands: Record<string, Command> = {};
 
@@ -36,6 +36,10 @@ export class Command {
   setAction(action: Command['action']) {
     this.action = action;
     return this;
+  }
+
+  async doAction(args: ParsedArgs) {
+    return await this.action(args);
   }
 
   subcommand(command: Command) {
