@@ -7,18 +7,19 @@ async function main() {
     .subcommand(tribe)
     .subcommand(remote)
     .option('-i --identity-file', {
-      description: 'The ssh identity file to use. Defaults to ~/.ssh/id_rsa.',
-      default: await defaultIdentityFile(),
+      description: 'The ssh identity file to use. You will be prompted if this is not supplied.',
     });
 
   const { parsed } = tribes.parse(Deno.args);
+  parsed['identity-file'] = await defaultIdentityFile(parsed['identity-file'] as string);
+
   const [s, v] = parsed._.slice(1);
 
   let cmd = tribes;
   if (s) cmd = tribes.getSubcommand(s);
   if (v) cmd = cmd.getSubcommand(v);
 
-  await cmd.action(parsed);
+  await cmd.doAction(parsed);
 }
 
 if (import.meta.main) {

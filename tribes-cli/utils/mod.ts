@@ -1,18 +1,7 @@
-import { join } from '@std/path';
 import { ParsedArgs } from './parsing.ts';
 import { Command } from './command.ts';
-
-export const defaultIdentityFile = async () => {
-  const home = Deno.env.get('HOME');
-  if (!home) throw new Error('tribes-cli: unable to find default identity file');
-  const path = join(home, '.ssh', 'id_rsa');
-  try {
-    await Deno.stat(path);
-    return path;
-  } catch {}
-
-  throw new Error('tribes-cli: unable to find default identity file.');
-};
+import { defaultIdentityFile } from './ssh/identity.ts';
+import { connect } from './ssh/mod.ts';
 
 export type Option =
   & { description: string }
@@ -27,5 +16,5 @@ export const cleanArg = (arg: string) => {
   return arg.replace(/^--?/g, '');
 };
 
-export { Command };
+export { Command, connect, defaultIdentityFile };
 export type { ParsedArgs };
