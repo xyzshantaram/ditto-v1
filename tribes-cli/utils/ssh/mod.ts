@@ -37,11 +37,11 @@ class TribesClient {
    * @returns The standard output of the command.
    */
   async do<K extends keyof typeof commands>(name: K, ...args: Parameters<typeof commands[K]>) {
-    const cmd = commands[name];
     // @ts-ignore this is okay because typescript enforces the correct args at the callsite
-    const res = await this.ssh.execCommand(cmd(...args));
+    const cmd = commands[name](...args);
+    console.log(`=> ${cmd}`);
+    const res = await this.ssh.execCommand(cmd);
     if (res.code) throw new Error(`Error executing ${name}: ${res.stderr}`);
-    console.error(res);
     return res.stdout;
   }
   /**
@@ -53,6 +53,9 @@ class TribesClient {
   async loud<K extends keyof typeof commands>(name: K, ...args: Parameters<typeof commands[K]>) {
     const stdout = await this.do(name, ...args);
     console.log(stdout);
+  }
+  async disconnect() {
+    this.ssh.dispose();
   }
 }
 
@@ -68,7 +71,9 @@ export const makeSshAction = (handler: (opts: HandlerOptions) => Promise<void> |
     const arg = (name: string) => args[name] as string;
     const domain = args._[0] as string;
     const tribes = await connect(domain, arg('identity-file'));
-    handler({ args, arg, tribes, domain });
+    await handler({ args, arg, tribes, domain });
+    console.log('Done.');
+    tribes.disconnect();
   };
 };
 
