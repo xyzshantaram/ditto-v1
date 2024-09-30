@@ -35,7 +35,10 @@ const resolveIdentityFile = async () => {
 
 export const defaultIdentityFile = async (supplied?: string) => {
   const cached = localStorage.getItem('identity-file-path');
-  if (cached && cached !== supplied && await question('confirm', `Found identity file ${cached}. Use it?`)) {
+  if (
+    cached && cached !== supplied &&
+    await question('confirm', `Found previously-used identity file ${cached}. Use it?`, true)
+  ) {
     return cached;
   }
 
