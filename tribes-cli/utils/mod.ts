@@ -1,10 +1,10 @@
-import { ParsedArgs } from './parsing.ts';
+import { getOptionName, ParsedArgs } from './parsing.ts';
 import { Command } from './command.ts';
 import { defaultIdentityFile } from './ssh/identity.ts';
-import { connect } from './ssh/mod.ts';
+import { makeSshAction, privkeyToPubkey } from './ssh/mod.ts';
 
 export type Option =
-  & { description: string }
+  & { description: string; required?: true }
   & ({
     default?: string;
   } | {
@@ -16,5 +16,14 @@ export const cleanArg = (arg: string) => {
   return arg.replace(/^--?/g, '');
 };
 
-export { Command, connect, defaultIdentityFile };
+export async function runLocally(cmd: string) {
+  console.log(cmd);
+  const command = new Deno.Command('bash', {
+    args: ['-c', cmd],
+  });
+
+  return command.output();
+}
+
+export { Command, defaultIdentityFile, getOptionName, makeSshAction, privkeyToPubkey };
 export type { ParsedArgs };
