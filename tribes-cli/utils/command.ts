@@ -39,6 +39,9 @@ export class Command {
   }
 
   async doAction(args: ParsedArgs) {
+    if (args.help) {
+      return console.log(this.help);
+    }
     return await this.action(args);
   }
 
@@ -56,8 +59,53 @@ export class Command {
   }
 
   parse(args: string[]) {
-    const parserArgs = parseSubcommand(this, {});
-    const parsed = parseArgs(Deno.args, parserArgs);
+    const parserArgs = parseSubcommand(this);
+    const parsed = parseArgs(args, {
+      ...parserArgs,
+      alias: {
+        'help': ['h'],
+      },
+      boolean: 'help',
+    });
     return { parsed, parserArgs };
+  }
+
+  get usage(): string {
+    const res = [`${this.name}`];
+    const subcommands = Object.keys(this.commands);
+    if (subcommands.length) {
+      res.push(`<${subcommands.join('|')}>`);
+    }
+    return res.join(' ');
+  }
+
+  get help(): string {
+    const lines = [
+      `Usage: ${this.usage}`,
+      '',
+      `${this.description}`,
+      '',
+    ];
+
+    if (Object.keys(this.options).length > 0) {
+      lines.push('Options:');
+      for (const [key, option] of Object.entries(this.options)) {
+        lines.push(`  ${key}\t${option.description}`);
+        if ('default' in option) {
+          lines[lines.length - 1] += ` (default: ${option.default})`;
+        }
+      }
+    }
+
+    lines.push('');
+
+    if (Object.keys(this.commands).length > 0) {
+      lines.push('Options:');
+      for (const [, command] of Object.entries(this.commands)) {
+        lines.push(`${command.usage}\t${command.description}`);
+      }
+    }
+
+    return lines.join('\n') + '\n';
   }
 }
