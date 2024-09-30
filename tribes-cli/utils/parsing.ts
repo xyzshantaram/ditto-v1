@@ -8,21 +8,31 @@ export interface ParsedSubcommand {
   default: Record<string, string | boolean>;
 }
 
-export const defaultParsedSubcommand = (): ParsedSubcommand => {
+export const defaultParsedCommand = (): ParsedSubcommand => {
   return {
     string: [],
-    boolean: [],
-    alias: {},
+    boolean: ['help'],
+    alias: { help: ['h'] },
     default: {},
   };
 };
 
-export const parseSubcommand = (command: Command, existing?: Partial<ParsedSubcommand>): ParsedSubcommand => {
-  const res = Object.assign(defaultParsedSubcommand(), existing);
+const getOptionAliases = (fmt: string) => {
+  const split = fmt.split(' ').toSorted((a, b) => b.length - a.length).map(cleanArg);
+  return split;
+};
+
+export const getOptionName = (fmt: string) => {
+  const split = getOptionAliases(fmt);
+  return split[0];
+};
+
+export const parseCommand = (command: Command, existing?: Partial<ParsedSubcommand>): ParsedSubcommand => {
+  const res = Object.assign(defaultParsedCommand(), existing);
 
   if (command.options) {
     for (const option in command.options) {
-      const split = option.split(' ').toSorted((a, b) => b.length - a.length).map(cleanArg);
+      const split = getOptionAliases(option);
       const name = split[0];
       const body = command.options[option];
       if ('bool' in body) {
@@ -36,7 +46,7 @@ export const parseSubcommand = (command: Command, existing?: Partial<ParsedSubco
 
   if (command.commands) {
     for (const subcommand in command.commands) {
-      const parsed = parseSubcommand(command.commands[subcommand]);
+      const parsed = parseCommand(command.commands[subcommand]);
       Object.assign(res.alias, parsed.alias);
       Object.assign(res.default, parsed.default);
       res.boolean.push(...parsed.boolean);
