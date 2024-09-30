@@ -23,6 +23,24 @@ const commands = {
   DOKKU_LETSENCRYPT_CRON() {
     return 'dokku letsencrypt:cron-job --add';
   },
+  DOKKU_CREATE_APP(name: string) {
+    return `dokku apps:create ${name}`;
+  },
+  DOKKU_LINK_PG(app: string, service: string) {
+    return `dokku postgres:link ${service} ${app}`;
+  },
+  DOKKU_SET_CONFIG_VAR(app: string, key: string, value: string, restart = false) {
+    return `dokku config:set ${restart ? '' : '--no-restart'} ${app} ${key}="${value}"`;
+  },
+  DOKKU_LOAD_GIT(app: string, repo: string, pathspec?: string) {
+    return `dokku git:sync ${app} ${repo} ${pathspec || ''}`;
+  },
+  DOKKU_LE_ENABLE(app: string) {
+    return `dokku letsencrypt:enable ${app}`;
+  },
+  DOKKU_REBUILD(app: string) {
+    return `dokku ps:rebuild ${app}`;
+  },
 };
 
 class TribesClient {
