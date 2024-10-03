@@ -1,12 +1,20 @@
 import { Kysely, sql } from 'kysely';
 
 export async function up(db: Kysely<any>): Promise<void> {
-  await db.schema
-    .alterTable('author_stats')
-    .addColumn('search', 'text', (col) => col.notNull().defaultTo(''))
-    .execute();
+  try {
+    await db.schema
+      .alterTable('author_stats')
+      .addColumn('search', 'text', (col) => col.notNull().defaultTo(''))
+      .execute();
+  } catch (e) {
+    if (e.message.toLowerCase().includes('already exists')) {
+      console.warn('skipping 034');
+    }
+  }
 
-  await sql`CREATE INDEX author_stats_search_idx ON author_stats USING GIN (search gin_trgm_ops)`.execute(db);
+  await sql`CREATE INDEX IF NOT EXISTS author_stats_search_idx ON author_stats USING GIN (search gin_trgm_ops)`.execute(
+    db,
+  );
 
   await db.insertInto('author_stats')
     .columns(['pubkey', 'search'])
