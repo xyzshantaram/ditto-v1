@@ -59,11 +59,15 @@ if (import.meta.main) {
                 .then(async (buf) => await Deno.writeFile('./public/favicon.ico', buf))
             );
         } catch (e) {
-          die(1, `Error generating favicon from url ${image}: "${e}". Please check this or try again without --image.`);
+          console.log(
+            `Error generating favicon from url ${image}: "${e}". Please check this or try again later -- proceeding silently for now.`,
+          );
         }
       }
       console.log({ content, signed });
-      await Storages.db().then((store) => store.event(signed));
+      const store = await Storages.db();
+      await store.event(signed);
+      Deno.exit(0);
     });
 
   await kind0.parseAsync();
