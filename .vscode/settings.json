@@ -2,5 +2,8 @@
   "deno.enable": true,
   "deno.lint": true,
   "editor.defaultFormatter": "denoland.vscode-deno",
+  "eslint.useFlatConfig": true,
+  "eslint.lintTask.options": "--flag unstable_ts_config",
+  "eslint.validate": ["typescript"],
   "path-intellisense.extensionOnImport": true
 }
