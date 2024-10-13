@@ -1,14 +1,12 @@
+import { Hono } from '@hono/hono';
 import { NostrFilter, NSchema as n } from '@nostrify/nostrify';
-import { nip19 } from 'nostr-tools';
 import { z } from 'zod';
 
-import { type AppController } from '@/app.ts';
 import { Conf } from '@/config.ts';
 import { getAuthor, getFollowedPubkeys } from '@/queries.ts';
 import { booleanParamSchema, fileSchema } from '@/schema.ts';
 import { Storages } from '@/storages.ts';
 import { uploadFile } from '@/utils/upload.ts';
-import { nostrNow } from '@/utils.ts';
 import { createEvent, paginated, parseBody, updateEvent, updateListEvent } from '@/utils/api.ts';
 import { extractIdentifier, lookupAccount, lookupPubkey } from '@/utils/lookup.ts';
 import { renderAccounts, renderEventAccounts, renderStatuses } from '@/views.ts';
@@ -19,34 +17,17 @@ import { hydrateEvents } from '@/storages/hydrate.ts';
 import { bech32ToPubkey } from '@/utils.ts';
 import { addTag, deleteTag, findReplyTag, getTagSet } from '@/utils/tags.ts';
 import { getPubkeysBySearch } from '@/utils/search.ts';
+import { requireSigner } from '@/middleware/requireSigner.ts';
+import { paginationMiddleware } from '@/middleware/paginationMiddleware.ts';
 
-const usernameSchema = z
-  .string().min(1).max(30)
-  .regex(/^[a-z0-9_]+$/i)
-  .refine((username) => !Conf.forbiddenUsernames.includes(username), 'Username is reserved.');
+export const accountsController = new Hono();
 
-const createAccountSchema = z.object({
-  username: usernameSchema,
+accountsController.post('/', (c) => {
+  return c.json({ error: 'Please create an account on the web first' }, 422);
 });
 
-const createAccountController: AppController = async (c) => {
-  const pubkey = await c.get('signer')?.getPublicKey()!;
-  const result = createAccountSchema.safeParse(await c.req.json());
-
-  if (!result.success) {
-    return c.json({ error: 'Bad request', schema: result.error }, 400);
-  }
-
-  return c.json({
-    access_token: nip19.npubEncode(pubkey),
-    token_type: 'Bearer',
-    scope: 'read write follow push',
-    created_at: nostrNow(),
-  });
-};
-
-const verifyCredentialsController: AppController = async (c) => {
-  const signer = c.get('signer')!;
+accountsController.get('/verify_credentials', requireSigner, async (c) => {
+  const signer = c.get('signer');
   const pubkey = await signer.getPublicKey();
 
   const store = await Storages.db();
@@ -74,9 +55,9 @@ const verifyCredentialsController: AppController = async (c) => {
     : await accountFromPubkey(pubkey, { withSource: true, settingsStore });
 
   return c.json(account);
-};
+});
 
-const accountController: AppController = async (c) => {
+accountsController.get('/:pubkey{[0-9a-f]{64}}', async (c) => {
   const pubkey = c.req.param('pubkey');
 
   const event = await getAuthor(pubkey);
@@ -85,9 +66,9 @@ const accountController: AppController = async (c) => {
   } else {
     return c.json(await accountFromPubkey(pubkey));
   }
-};
+});
 
-const accountLookupController: AppController = async (c) => {
+accountsController.get('/lookup', async (c) => {
   const acct = c.req.query('acct');
 
   if (!acct) {
@@ -104,7 +85,7 @@ const accountLookupController: AppController = async (c) => {
   } catch {
     return c.json({ error: 'Could not find user.' }, 404);
   }
-};
+});
 
 const accountSearchQuerySchema = z.object({
   q: z.string().transform(decodeURIComponent),
@@ -112,7 +93,7 @@ const accountSearchQuerySchema = z.object({
   following: z.boolean().default(false),
 });
 
-const accountSearchController: AppController = async (c) => {
+accountsController.get('/search', paginationMiddleware, async (c) => {
   const { signal } = c.req.raw;
   const { limit } = c.get('pagination');
   const kysely = await Storages.kysely();
@@ -155,10 +136,10 @@ const accountSearchController: AppController = async (c) => {
   );
 
   return c.json(accounts);
-};
+});
 
-const relationshipsController: AppController = async (c) => {
-  const pubkey = await c.get('signer')?.getPublicKey()!;
+accountsController.get('/relationships', requireSigner, async (c) => {
+  const pubkey = await c.get('signer').getPublicKey();
   const ids = z.array(z.string()).safeParse(c.req.queries('id[]'));
 
   if (!ids.success) {
@@ -186,7 +167,7 @@ const relationshipsController: AppController = async (c) => {
   );
 
   return c.json(result);
-};
+});
 
 const accountStatusesQuerySchema = z.object({
   pinned: booleanParamSchema.optional(),
@@ -195,7 +176,7 @@ const accountStatusesQuerySchema = z.object({
   tagged: z.string().optional(),
 });
 
-const accountStatusesController: AppController = async (c) => {
+accountsController.get('/:pubkey{[0-9a-f]{64}}/statuses', paginationMiddleware, async (c) => {
   const pubkey = c.req.param('pubkey');
   const { since, until } = c.get('pagination');
   const { pinned, limit, exclude_replies, tagged } = accountStatusesQuerySchema.parse(c.req.query());
@@ -254,8 +235,9 @@ const accountStatusesController: AppController = async (c) => {
       return renderStatus(event, { viewerPubkey });
     }),
   );
+
   return paginated(c, events, statuses);
-};
+});
 
 const updateCredentialsSchema = z.object({
   display_name: z.string().optional(),
@@ -271,8 +253,8 @@ const updateCredentialsSchema = z.object({
   website: z.string().url().or(z.literal('')).optional(),
 });
 
-const updateCredentialsController: AppController = async (c) => {
-  const signer = c.get('signer')!;
+accountsController.patch('/update_credentials', requireSigner, async (c) => {
+  const signer = c.get('signer');
   const pubkey = await signer.getPublicKey();
   const body = await parseBody(c.req.raw);
   const result = updateCredentialsSchema.safeParse(body);
@@ -337,11 +319,11 @@ const updateCredentialsController: AppController = async (c) => {
   }
 
   return c.json(account);
-};
+});
 
-/** https://docs.joinmastodon.org/methods/accounts/#follow */
-const followController: AppController = async (c) => {
-  const sourcePubkey = await c.get('signer')?.getPublicKey()!;
+// https://docs.joinmastodon.org/methods/accounts/#follow
+accountsController.post('/:pubkey{[0-9a-f]{64}}/follow', requireSigner, async (c) => {
+  const sourcePubkey = await c.get('signer').getPublicKey();
   const targetPubkey = c.req.param('pubkey');
 
   await updateListEvent(
@@ -354,10 +336,10 @@ const followController: AppController = async (c) => {
   relationship.following = true;
 
   return c.json(relationship);
-};
+});
 
-/** https://docs.joinmastodon.org/methods/accounts/#unfollow */
-const unfollowController: AppController = async (c) => {
+// https://docs.joinmastodon.org/methods/accounts/#unfollow
+accountsController.post('/:pubkey{[0-9a-f]{64}}/unfollow', requireSigner, async (c) => {
   const sourcePubkey = await c.get('signer')?.getPublicKey()!;
   const targetPubkey = c.req.param('pubkey');
 
@@ -369,33 +351,33 @@ const unfollowController: AppController = async (c) => {
 
   const relationship = await getRelationship(sourcePubkey, targetPubkey);
   return c.json(relationship);
-};
+});
 
-const followersController: AppController = (c) => {
+accountsController.get('/:pubkey{[0-9a-f]{64}}/followers', paginationMiddleware, (c) => {
   const pubkey = c.req.param('pubkey');
   const params = c.get('pagination');
   return renderEventAccounts(c, [{ kinds: [3], '#p': [pubkey], ...params }]);
-};
+});
 
-const followingController: AppController = async (c) => {
+accountsController.get('/:pubkey{[0-9a-f]{64}}/following', paginationMiddleware, async (c) => {
   const pubkey = c.req.param('pubkey');
   const pubkeys = await getFollowedPubkeys(pubkey);
   return renderAccounts(c, [...pubkeys]);
-};
+});
 
-/** https://docs.joinmastodon.org/methods/accounts/#block */
-const blockController: AppController = (c) => {
+// https://docs.joinmastodon.org/methods/accounts/#block
+accountsController.post('/:pubkey{[0-9a-f]{64}}/block', (c) => {
   return c.json({ error: 'Blocking is not supported by Nostr' }, 422);
-};
+});
 
-/** https://docs.joinmastodon.org/methods/accounts/#unblock */
-const unblockController: AppController = (c) => {
+// https://docs.joinmastodon.org/methods/accounts/#unblock
+accountsController.post('/:pubkey{[0-9a-f]{64}}/unblock', (c) => {
   return c.json({ error: 'Blocking is not supported by Nostr' }, 422);
-};
+});
 
-/** https://docs.joinmastodon.org/methods/accounts/#mute */
-const muteController: AppController = async (c) => {
-  const sourcePubkey = await c.get('signer')?.getPublicKey()!;
+// https://docs.joinmastodon.org/methods/accounts/#mute
+accountsController.post('/:pubkey{[0-9a-f]{64}}/mute', requireSigner, async (c) => {
+  const sourcePubkey = await c.get('signer').getPublicKey();
   const targetPubkey = c.req.param('pubkey');
 
   await updateListEvent(
@@ -406,11 +388,11 @@ const muteController: AppController = async (c) => {
 
   const relationship = await getRelationship(sourcePubkey, targetPubkey);
   return c.json(relationship);
-};
+});
 
-/** https://docs.joinmastodon.org/methods/accounts/#unmute */
-const unmuteController: AppController = async (c) => {
-  const sourcePubkey = await c.get('signer')?.getPublicKey()!;
+// https://docs.joinmastodon.org/methods/accounts/#unmute
+accountsController.post('/:pubkey{[0-9a-f]{64}}/unmute', requireSigner, async (c) => {
+  const sourcePubkey = await c.get('signer').getPublicKey();
   const targetPubkey = c.req.param('pubkey');
 
   await updateListEvent(
@@ -421,38 +403,11 @@ const unmuteController: AppController = async (c) => {
 
   const relationship = await getRelationship(sourcePubkey, targetPubkey);
   return c.json(relationship);
-};
+});
 
-const favouritesController: AppController = async (c) => {
-  const pubkey = await c.get('signer')?.getPublicKey()!;
-  const params = c.get('pagination');
-  const { signal } = c.req.raw;
-
+accountsController.get('/familiar_followers', requireSigner, async (c) => {
   const store = await Storages.db();
-
-  const events7 = await store.query(
-    [{ kinds: [7], authors: [pubkey], ...params }],
-    { signal },
-  );
-
-  const ids = events7
-    .map((event) => event.tags.find((tag) => tag[0] === 'e')?.[1])
-    .filter((id): id is string => !!id);
-
-  const events1 = await store.query([{ kinds: [1], ids }], { signal })
-    .then((events) => hydrateEvents({ events, store, signal }));
-
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
-
-  const statuses = await Promise.all(
-    events1.map((event) => renderStatus(event, { viewerPubkey })),
-  );
-  return paginated(c, events1, statuses);
-};
-
-const familiarFollowersController: AppController = async (c) => {
-  const store = await Storages.db();
-  const signer = c.get('signer')!;
+  const signer = c.get('signer');
   const pubkey = await signer.getPublicKey();
 
   const ids = z.array(z.string()).parse(c.req.queries('id[]'));
@@ -470,7 +425,7 @@ const familiarFollowersController: AppController = async (c) => {
   }));
 
   return c.json(results);
-};
+});
 
 async function getRelationship(sourcePubkey: string, targetPubkey: string) {
   const db = await Storages.db();
@@ -488,24 +443,3 @@ async function getRelationship(sourcePubkey: string, targetPubkey: string) {
     event10000: sourceEvents.find((event) => event.kind === 10000 && event.pubkey === sourcePubkey),
   });
 }
-
-export {
-  accountController,
-  accountLookupController,
-  accountSearchController,
-  accountStatusesController,
-  blockController,
-  createAccountController,
-  familiarFollowersController,
-  favouritesController,
-  followController,
-  followersController,
-  followingController,
-  muteController,
-  relationshipsController,
-  unblockController,
-  unfollowController,
-  unmuteController,
-  updateCredentialsController,
-  verifyCredentialsController,
-};

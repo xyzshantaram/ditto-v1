@@ -9,26 +9,7 @@ import '@/startup.ts';
 
 import { Time } from '@/utils/time.ts';
 
-import {
-  accountController,
-  accountLookupController,
-  accountSearchController,
-  accountStatusesController,
-  blockController,
-  createAccountController,
-  familiarFollowersController,
-  favouritesController,
-  followController,
-  followersController,
-  followingController,
-  muteController,
-  relationshipsController,
-  unblockController,
-  unfollowController,
-  unmuteController,
-  updateCredentialsController,
-  verifyCredentialsController,
-} from '@/controllers/api/accounts.ts';
+import { accountsController } from '@/controllers/api/accounts.ts';
 import {
   adminAccountsController,
   adminActionController,
@@ -50,6 +31,7 @@ import {
   updateZapSplitsController,
 } from '@/controllers/api/ditto.ts';
 import { emptyArrayController, emptyObjectController, notImplementedController } from '@/controllers/api/fallback.ts';
+import { favouritesController } from '@/controllers/api/favourites.ts';
 import {
   instanceDescriptionController,
   instanceV1Controller,
@@ -200,23 +182,7 @@ app.post('/oauth/revoke', emptyObjectController);
 app.post('/oauth/authorize', oauthAuthorizeController);
 app.get('/oauth/authorize', oauthController);
 
-app.post('/api/v1/accounts', requireProof({ pow: 20 }), createAccountController);
-app.get('/api/v1/accounts/verify_credentials', requireSigner, verifyCredentialsController);
-app.patch('/api/v1/accounts/update_credentials', requireSigner, updateCredentialsController);
-app.get('/api/v1/accounts/search', accountSearchController);
-app.get('/api/v1/accounts/lookup', accountLookupController);
-app.get('/api/v1/accounts/relationships', requireSigner, relationshipsController);
-app.get('/api/v1/accounts/familiar_followers', requireSigner, familiarFollowersController);
-app.post('/api/v1/accounts/:pubkey{[0-9a-f]{64}}/block', requireSigner, blockController);
-app.post('/api/v1/accounts/:pubkey{[0-9a-f]{64}}/unblock', requireSigner, unblockController);
-app.post('/api/v1/accounts/:pubkey{[0-9a-f]{64}}/mute', requireSigner, muteController);
-app.post('/api/v1/accounts/:pubkey{[0-9a-f]{64}}/unmute', requireSigner, unmuteController);
-app.post('/api/v1/accounts/:pubkey{[0-9a-f]{64}}/follow', requireSigner, followController);
-app.post('/api/v1/accounts/:pubkey{[0-9a-f]{64}}/unfollow', requireSigner, unfollowController);
-app.get('/api/v1/accounts/:pubkey{[0-9a-f]{64}}/followers', followersController);
-app.get('/api/v1/accounts/:pubkey{[0-9a-f]{64}}/following', followingController);
-app.get('/api/v1/accounts/:pubkey{[0-9a-f]{64}}/statuses', accountStatusesController);
-app.get('/api/v1/accounts/:pubkey{[0-9a-f]{64}}', accountController);
+app.route('/api/v1/accounts', accountsController);
 
 app.get('/api/v1/statuses/:id{[0-9a-f]{64}}/favourited_by', favouritedByController);
 app.get('/api/v1/statuses/:id{[0-9a-f]{64}}/reblogged_by', rebloggedByController);
@@ -268,7 +234,7 @@ app.get('/api/v1/suggestions', suggestionsV1Controller);
 app.get('/api/v2/suggestions', suggestionsV2Controller);
 
 app.get('/api/v1/notifications', requireSigner, notificationsController);
-app.get('/api/v1/favourites', requireSigner, favouritesController);
+app.route('/api/v1/favourites', favouritesController);
 app.get('/api/v1/bookmarks', requireSigner, bookmarksController);
 app.get('/api/v1/blocks', requireSigner, blocksController);
 app.get('/api/v1/mutes', requireSigner, mutesController);
