@@ -1,6 +1,7 @@
+import { type Context } from '@hono/hono';
 import { HTTPException } from '@hono/hono/http-exception';
+import { NUploader } from '@nostrify/nostrify';
 
-import { AppContext } from '@/app.ts';
 import { Conf } from '@/config.ts';
 import { DittoUpload, dittoUploads } from '@/DittoUploads.ts';
 
@@ -11,7 +12,7 @@ interface FileMeta {
 
 /** Upload a file, track it in the database, and return the resulting media object. */
 export async function uploadFile(
-  c: AppContext,
+  c: Context<{ Variables: { uploader?: NUploader } }>,
   file: File,
   meta: FileMeta,
   signal?: AbortSignal,

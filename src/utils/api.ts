@@ -6,7 +6,6 @@ import { parseFormData } from 'formdata-helper';
 import { EventTemplate } from 'nostr-tools';
 import * as TypeFest from 'type-fest';
 
-import { type AppContext } from '@/app.ts';
 import { Conf } from '@/config.ts';
 import * as pipeline from '@/pipeline.ts';
 import { RelayError } from '@/RelayError.ts';
@@ -21,7 +20,7 @@ const debug = Debug('ditto:api');
 type EventStub = TypeFest.SetOptional<EventTemplate, 'content' | 'created_at' | 'tags'>;
 
 /** Publish an event through the pipeline. */
-async function createEvent(t: EventStub, c: AppContext): Promise<NostrEvent> {
+async function createEvent(t: EventStub, c: Context): Promise<NostrEvent> {
   const signer = c.get('signer');
 
   if (!signer) {
@@ -50,7 +49,7 @@ interface UpdateEventFilter extends NostrFilter {
 async function updateEvent<E extends EventStub>(
   filter: UpdateEventFilter,
   fn: (prev: NostrEvent) => E | Promise<E>,
-  c: AppContext,
+  c: Context,
 ): Promise<NostrEvent> {
   const store = await Storages.db();
 
@@ -72,7 +71,7 @@ async function updateEvent<E extends EventStub>(
 function updateListEvent(
   filter: UpdateEventFilter,
   fn: (tags: string[][]) => string[][],
-  c: AppContext,
+  c: Context,
 ): Promise<NostrEvent> {
   return updateEvent(filter, ({ content, tags }) => ({
     kind: filter.kinds[0],
@@ -82,7 +81,7 @@ function updateListEvent(
 }
 
 /** Publish an admin event through the pipeline. */
-async function createAdminEvent(t: EventStub, c: AppContext): Promise<NostrEvent> {
+async function createAdminEvent(t: EventStub, c: Context): Promise<NostrEvent> {
   const signer = new AdminSigner();
 
   const event = await signer.signEvent({
@@ -99,7 +98,7 @@ async function createAdminEvent(t: EventStub, c: AppContext): Promise<NostrEvent
 function updateListAdminEvent(
   filter: UpdateEventFilter,
   fn: (tags: string[][]) => string[][],
-  c: AppContext,
+  c: Context,
 ): Promise<NostrEvent> {
   return updateAdminEvent(filter, (prev) => ({
     kind: filter.kinds[0],
@@ -112,22 +111,22 @@ function updateListAdminEvent(
 async function updateAdminEvent<E extends EventStub>(
   filter: UpdateEventFilter,
   fn: (prev: NostrEvent | undefined) => E,
-  c: AppContext,
+  c: Context,
 ): Promise<NostrEvent> {
   const store = await Storages.db();
   const [prev] = await store.query([filter], { limit: 1, signal: c.req.raw.signal });
   return createAdminEvent(fn(prev), c);
 }
 
-function updateUser(pubkey: string, n: Record<string, boolean>, c: AppContext): Promise<NostrEvent> {
+function updateUser(pubkey: string, n: Record<string, boolean>, c: Context): Promise<NostrEvent> {
   return updateNames(30382, pubkey, n, c);
 }
 
-function updateEventInfo(id: string, n: Record<string, boolean>, c: AppContext): Promise<NostrEvent> {
+function updateEventInfo(id: string, n: Record<string, boolean>, c: Context): Promise<NostrEvent> {
   return updateNames(30383, id, n, c);
 }
 
-async function updateNames(k: number, d: string, n: Record<string, boolean>, c: AppContext): Promise<NostrEvent> {
+async function updateNames(k: number, d: string, n: Record<string, boolean>, c: Context): Promise<NostrEvent> {
   const signer = new AdminSigner();
   const admin = await signer.getPublicKey();
 
@@ -158,7 +157,7 @@ async function updateNames(k: number, d: string, n: Record<string, boolean>, c: 
 }
 
 /** Push the event through the pipeline, rethrowing any RelayError. */
-async function publishEvent(event: NostrEvent, c: AppContext): Promise<NostrEvent> {
+async function publishEvent(event: NostrEvent, c: Context): Promise<NostrEvent> {
   debug('EVENT', event);
   try {
     await pipeline.handleEvent(event, c.req.raw.signal);
@@ -209,7 +208,7 @@ type Entity = { id: string };
 type HeaderRecord = Record<string, string | string[]>;
 
 /** Return results with pagination headers. Assumes chronological sorting of events. */
-function paginated(c: AppContext, events: NostrEvent[], entities: (Entity | undefined)[], headers: HeaderRecord = {}) {
+function paginated(c: Context, events: NostrEvent[], entities: (Entity | undefined)[], headers: HeaderRecord = {}) {
   const link = buildLinkHeader(c.req.url, events);
 
   if (link) {
@@ -240,7 +239,7 @@ function buildListLinkHeader(url: string, params: { offset: number; limit: numbe
 
 /** paginate a list of tags. */
 function paginatedList(
-  c: AppContext,
+  c: Context,
   params: { offset: number; limit: number },
   entities: unknown[],
   headers: HeaderRecord = {},
