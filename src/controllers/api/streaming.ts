@@ -14,8 +14,7 @@ import { MuteListPolicy } from '@/policies/MuteListPolicy.ts';
 import { getFeedPubkeys } from '@/queries.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { Storages } from '@/storages.ts';
-import { getTokenHash } from '@/utils/auth.ts';
-import { bech32ToPubkey, Time } from '@/utils.ts';
+import { Time } from '@/utils.ts';
 import { renderReblog, renderStatus } from '@/views/mastodon/statuses.ts';
 import { renderNotification } from '@/views/mastodon/notifications.ts';
 
@@ -70,7 +69,8 @@ const connections = new Set<WebSocket>();
 
 const streamingController: AppController = async (c) => {
   const upgrade = c.req.header('upgrade');
-  const token = c.req.header('sec-websocket-protocol');
+  const protocol = c.req.header('sec-websocket-protocol');
+  const signer = c.get('signer');
   const stream = streamSchema.optional().catch(undefined).parse(c.req.query('stream'));
   const controller = new AbortController();
 
@@ -78,8 +78,8 @@ const streamingController: AppController = async (c) => {
     return c.text('Please use websocket protocol', 400);
   }
 
-  const pubkey = token ? await getTokenPubkey(token) : undefined;
-  if (token && !pubkey) {
+  const pubkey = await signer?.getPublicKey();
+  if (!pubkey) {
     return c.json({ error: 'Invalid access token' }, 401);
   }
 
@@ -91,7 +91,7 @@ const streamingController: AppController = async (c) => {
     }
   }
 
-  const { socket, response } = Deno.upgradeWebSocket(c.req.raw, { protocol: token, idleTimeout: 30 });
+  const { socket, response } = Deno.upgradeWebSocket(c.req.raw, { protocol, idleTimeout: 30 });
 
   const store = await Storages.db();
   const pubsub = await Storages.pubsub();
@@ -228,23 +228,6 @@ async function topicToFilter(
       // and then calls `matchFilters` over it. Refreshing the page
       // is required after following a new user.
       return pubkey ? { kinds: [1, 6], authors: [...await getFeedPubkeys(pubkey)] } : undefined;
-  }
-}
-
-async function getTokenPubkey(token: string): Promise<string | undefined> {
-  if (token.startsWith('token1')) {
-    const kysely = await Storages.kysely();
-    const tokenHash = await getTokenHash(token as `token1${string}`);
-
-    const { pubkey } = await kysely
-      .selectFrom('auth_tokens')
-      .select('pubkey')
-      .where('token_hash', '=', tokenHash)
-      .executeTakeFirstOrThrow();
-
-    return pubkey;
-  } else {
-    return bech32ToPubkey(token);
   }
 }
 
