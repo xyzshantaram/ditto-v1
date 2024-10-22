@@ -78,11 +78,6 @@ const streamingController: AppController = async (c) => {
     return c.text('Please use websocket protocol', 400);
   }
 
-  const pubkey = await signer?.getPublicKey();
-  if (!pubkey) {
-    return c.json({ error: 'Invalid access token' }, 401);
-  }
-
   const ip = c.req.header('x-real-ip');
   if (ip) {
     const count = limiter.get(ip) ?? 0;
@@ -96,6 +91,7 @@ const streamingController: AppController = async (c) => {
   const store = await Storages.db();
   const pubsub = await Storages.pubsub();
 
+  const pubkey = await signer?.getPublicKey();
   const policy = pubkey ? new MuteListPolicy(pubkey, await Storages.admin()) : undefined;
 
   function send(e: StreamingEvent) {

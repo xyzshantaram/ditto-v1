@@ -31,7 +31,7 @@ export const signerMiddleware: AppMiddleware = async (c, next) => {
     } catch {
       throw new HTTPException(401);
     }
-  } else {
+  } else if (accessToken) {
     try {
       const decoded = nip19.decode(accessToken!);
 
@@ -47,7 +47,7 @@ export const signerMiddleware: AppMiddleware = async (c, next) => {
           break;
       }
     } catch {
-      throw new HTTPException(401);
+      throw new HTTPException(401, { message: 'Invalid access token' });
     }
   }
 
