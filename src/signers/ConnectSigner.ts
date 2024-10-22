@@ -30,8 +30,8 @@ export class ConnectSigner implements NostrSigner {
     const signer = await this.signer;
     try {
       return await signer.signEvent(event);
-    } catch (e: any) {
-      if (e.name === 'AbortError') {
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
         throw new HTTPException(408, { message: 'The event was not signed quickly enough' });
       } else {
         throw e;
@@ -44,8 +44,8 @@ export class ConnectSigner implements NostrSigner {
       const signer = await this.signer;
       try {
         return await signer.nip04.encrypt(pubkey, plaintext);
-      } catch (e: any) {
-        if (e.name === 'AbortError') {
+      } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') {
           throw new HTTPException(408, {
             message: 'Text was not encrypted quickly enough',
           });
@@ -59,8 +59,8 @@ export class ConnectSigner implements NostrSigner {
       const signer = await this.signer;
       try {
         return await signer.nip04.decrypt(pubkey, ciphertext);
-      } catch (e: any) {
-        if (e.name === 'AbortError') {
+      } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') {
           throw new HTTPException(408, {
             message: 'Text was not decrypted quickly enough',
           });
@@ -76,8 +76,8 @@ export class ConnectSigner implements NostrSigner {
       const signer = await this.signer;
       try {
         return await signer.nip44.encrypt(pubkey, plaintext);
-      } catch (e: any) {
-        if (e.name === 'AbortError') {
+      } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') {
           throw new HTTPException(408, {
             message: 'Text was not encrypted quickly enough',
           });
@@ -91,8 +91,8 @@ export class ConnectSigner implements NostrSigner {
       const signer = await this.signer;
       try {
         return await signer.nip44.decrypt(pubkey, ciphertext);
-      } catch (e: any) {
-        if (e.name === 'AbortError') {
+      } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') {
           throw new HTTPException(408, {
             message: 'Text was not decrypted quickly enough',
           });
@@ -103,9 +103,17 @@ export class ConnectSigner implements NostrSigner {
     },
   };
 
-  // Prevent unnecessary NIP-46 round-trips.
   async getPublicKey(): Promise<string> {
-    return this.pubkey;
+    const signer = await this.signer;
+    try {
+      return await signer.getPublicKey();
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        throw new HTTPException(408, { message: 'Public key not received quickly enough' });
+      } else {
+        throw e;
+      }
+    }
   }
 
   /** Get the user's relays if they passed in an `nprofile` auth token. */
