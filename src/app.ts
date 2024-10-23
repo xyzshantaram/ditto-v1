@@ -177,7 +177,7 @@ app.use('/users/*', metricsMiddleware, logger(debug));
 app.use('/nodeinfo/*', metricsMiddleware, logger(debug));
 app.use('/oauth/*', metricsMiddleware, logger(debug));
 
-app.get('/api/v1/streaming', metricsMiddleware, streamingController);
+app.get('/api/v1/streaming', metricsMiddleware, signerMiddleware, streamingController);
 app.get('/relay', metricsMiddleware, relayController);
 
 app.use(

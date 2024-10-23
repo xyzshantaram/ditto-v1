@@ -342,6 +342,13 @@ class Conf {
         ttl: Number(Deno.env.get('DITTO_CACHE_TRANSLATION_TTL') || 6 * 60 * 60 * 1000),
       };
     },
+    /** Signer cache settings. */
+    get signer(): { max: number; ttl: number } {
+      return {
+        max: Number(Deno.env.get('DITTO_CACHE_SIGNER_MAX') || 1000),
+        ttl: Number(Deno.env.get('DITTO_CACHE_SIGNER_TTL') || 1 * 60 * 60 * 1000),
+      };
+    },
   };
 }
 

@@ -126,6 +126,11 @@ export const cachedTranslationsSizeGauge = new Gauge({
   help: 'Number of translated statuses in cache',
 });
 
+export const cachedSignersSizeGauge = new Gauge({
+  name: 'ditto_cached_signers_size',
+  help: 'Number of signers in cache',
+});
+
 export const internalSubscriptionsSizeGauge = new Gauge({
   name: 'ditto_internal_subscriptions_size',
   help: "Number of active subscriptions to Ditto's internal relay",
