@@ -11,14 +11,15 @@ import { Storages } from '@/storages.ts';
  */
 export class ConnectSigner implements NostrSigner {
   private signer: Promise<NConnectSigner>;
+  private cachedPubkey: Promise<string> | undefined;
 
-  constructor(private pubkey: string, signer: NostrSigner, private relays?: string[]) {
-    this.signer = this.init(signer);
+  constructor(pubkey: string, signer: NostrSigner, private relays?: string[]) {
+    this.signer = this.init(pubkey, signer);
   }
 
-  async init(signer: NostrSigner): Promise<NConnectSigner> {
+  async init(pubkey: string, signer: NostrSigner): Promise<NConnectSigner> {
     return new NConnectSigner({
-      pubkey: this.pubkey,
+      pubkey,
       // TODO: use a remote relay for `nprofile` signing (if present and `Conf.relay` isn't already in the list)
       relay: await Storages.pubsub(),
       signer,
@@ -105,9 +106,11 @@ export class ConnectSigner implements NostrSigner {
 
   async getPublicKey(): Promise<string> {
     const signer = await this.signer;
+    this.cachedPubkey = this.cachedPubkey ?? signer.getPublicKey();
     try {
-      return await signer.getPublicKey();
+      return await this.cachedPubkey;
     } catch (e) {
+      this.cachedPubkey = undefined;
       if (e instanceof Error && e.name === 'AbortError') {
         throw new HTTPException(408, { message: 'Public key not received quickly enough' });
       } else {
