@@ -362,7 +362,6 @@ app.get('/api/v1/conversations', emptyArrayController);
 app.get('/api/v1/lists', emptyArrayController);
 
 app.use('/api/*', notImplementedController);
-app.use('/.well-known/*', notImplementedController);
 app.use('/nodeinfo/*', notImplementedController);
 app.use('/oauth/*', notImplementedController);
 
@@ -391,6 +390,9 @@ app.get('/', frontendController, indexController);
 
 // Fallback
 app.get('*', publicFiles, staticFiles, frontendController);
+
+/** https://gitlab.com/soapbox-pub/ditto/-/merge_requests/578#note_2192706334 */
+app.use('/.well-known/*', notImplementedController);
 
 app.onError(errorHandler);
 
