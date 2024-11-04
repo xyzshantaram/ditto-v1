@@ -192,12 +192,8 @@ app.use(
 
 app.get('/metrics', metricsController);
 
-const publicFiles = serveStatic({ root: './public/' });
-const staticFiles = serveStatic({ root: './static/' });
-
 app.get('/.well-known/nodeinfo', nodeInfoController);
 app.get('/.well-known/nostr.json', nostrController);
-app.get('/.well-known/assetlinks.json', publicFiles);
 
 app.get('/nodeinfo/:version', nodeInfoSchemaController);
 app.get('/manifest.webmanifest', manifestController);
@@ -369,6 +365,9 @@ app.use('/api/*', notImplementedController);
 app.use('/.well-known/*', notImplementedController);
 app.use('/nodeinfo/*', notImplementedController);
 app.use('/oauth/*', notImplementedController);
+
+const publicFiles = serveStatic({ root: './public/' });
+const staticFiles = serveStatic({ root: './static/' });
 
 // Known frontend routes
 app.get('/:acct{@.*}', frontendController);
