@@ -1,0 +1,40 @@
+example.com {
+  root * /opt/ditto/public
+
+  # Static file serving for /packs
+  handle_path /packs* {
+    root * /opt/ditto/public
+    header {
+      Cache-Control "public, max-age=31536000, immutable"
+      Strict-Transport-Security "max-age=31536000"
+    }
+    file_server
+  }
+
+  # Special handling for instance files and service workers
+  handle_path /{instance,sw.js,sw.js.map} {
+    root * /opt/ditto/public
+    file_server
+  }
+
+  # Metrics endpoint, restricted to localhost
+  handle_path /metrics {
+    @localOnly {
+      remote_ip 127.0.0.1
+    }
+    reverse_proxy @localOnly 127.0.0.1:4036
+  }
+
+  # Proxy all other requests to the upstream Ditto server
+  handle {
+    reverse_proxy 127.0.0.1:4036 {
+      header_up Host {host}
+      header_up X-Real-IP {remote_host}
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Forwarded-Proto {scheme}
+    }
+  }
+
+  # Enable gzip compression for responses
+  encode gzip
+}
