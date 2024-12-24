@@ -29,7 +29,6 @@ const reactionController: AppController = async (c) => {
   await createEvent({
     kind: 7,
     content: emoji,
-    created_at: Math.floor(Date.now() / 1000),
     tags: [['e', id], ['p', event.pubkey]],
   }, c);
 
@@ -74,7 +73,6 @@ const deleteReactionController: AppController = async (c) => {
   await createEvent({
     kind: 5,
     content: '',
-    created_at: Math.floor(Date.now() / 1000),
     tags,
   }, c);
 
