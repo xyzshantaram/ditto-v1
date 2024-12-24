@@ -103,6 +103,7 @@ import {
   reblogStatusController,
   statusController,
   unbookmarkController,
+  unfavouriteController,
   unpinController,
   unreblogStatusController,
   zapController,
@@ -239,6 +240,7 @@ app.get('/api/v1/statuses/:id{[0-9a-f]{64}}/reblogged_by', rebloggedByController
 app.get('/api/v1/statuses/:id{[0-9a-f]{64}}/context', contextController);
 app.get('/api/v1/statuses/:id{[0-9a-f]{64}}', statusController);
 app.post('/api/v1/statuses/:id{[0-9a-f]{64}}/favourite', requireSigner, favouriteController);
+app.delete('/api/v1/statuses/:id{[0-9a-f]{64}}/unfavourite', requireSigner, unfavouriteController);
 app.post('/api/v1/statuses/:id{[0-9a-f]{64}}/bookmark', requireSigner, bookmarkController);
 app.post('/api/v1/statuses/:id{[0-9a-f]{64}}/unbookmark', requireSigner, unbookmarkController);
 app.post('/api/v1/statuses/:id{[0-9a-f]{64}}/pin', requireSigner, pinController);
