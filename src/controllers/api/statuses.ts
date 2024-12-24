@@ -316,15 +316,6 @@ const favouriteController: AppController = async (c) => {
   const target = await getEvent(id, { kind: 1, relations: ['author', 'event_stats', 'author_stats'] });
 
   if (target) {
-    await createEvent({
-      kind: 7,
-      content: '+',
-      tags: [
-        ['e', target.id, Conf.relay, '', target.pubkey],
-        ['p', target.pubkey, Conf.relay],
-      ],
-    }, c);
-
     const status = await renderStatus(target, { viewerPubkey: await c.get('signer')?.getPublicKey() });
 
     if (status) {
@@ -336,6 +327,44 @@ const favouriteController: AppController = async (c) => {
   } else {
     return c.json({ error: 'Event not found.' }, 404);
   }
+};
+
+const unfavouriteController: AppController = async (c) => {
+  const id = c.req.param('id');
+  const signer = c.get('signer')!;
+  const pubkey = await signer.getPublicKey();
+  const store = await Storages.db();
+  const { signal } = c.req.raw;
+
+  const [event] = await store.query([{ ids: [id] }], { signal });
+  if (!event) {
+    return c.json({ error: 'Record not found.' }, 404);
+  }
+
+  const favouriteEvents = await store.query([
+    { kinds: [7], authors: [pubkey], '#e': [id] },
+  ]);
+  if (!favouriteEvents.length) {
+    return c.json({ error: 'Record not found.' }, 404);
+  }
+
+  favouriteEvents.forEach(async (e) => {
+    if (e.content === '+') {
+      await createEvent({
+        kind: 5,
+        tags: [
+          ['e', e.id],
+        ],
+        content: 'unfavourite',
+      }, c);
+    } 
+  })
+
+  await hydrateEvents({ events: [event], store, signal })
+
+  const status = await renderStatus(event, { viewerPubkey: pubkey });
+
+  return c.json(status);
 };
 
 const favouritedByController: AppController = (c) => {
@@ -660,6 +689,7 @@ export {
   reblogStatusController,
   statusController,
   unbookmarkController,
+  unfavouriteController,
   unpinController,
   unreblogStatusController,
   zapController,
