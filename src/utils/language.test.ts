@@ -42,23 +42,6 @@ Deno.test('Tests for language detection', async (t) => {
   });
 
   await t.step('The horrific problem sentence', async () => {
-    switch (Conf.languageDetector) {
-      case 'lingua':
-        assertEquals(
-          await detectLanguage(`It may die when I die, and that's okay. It's my earnings.`, 0.90),
-          'en',
-        );
-        break;
-      default:
-        assertNotEquals(
-          await detectLanguage(`It may die when I die, and that's okay. It's my earnings.`, 0.90),
-          'en',
-        );
-        break;
-    }
-  });
-
-  await t.step('The horrific problem sentence', async () => {
     const tester = Conf.languageDetector === 'lingua' ? assertEquals : assertNotEquals;
     tester(await detectLanguage(`It may die when I die, and that's okay. It's my earnings.`, 0.90), 'en');
   });
