@@ -19,6 +19,7 @@
     "setup:kind0": "deno run -A --env-file --deny-read=.env scripts/setup-kind0.ts",
     "stats:recompute": "deno run -A --env-file --deny-read=.env scripts/stats-recompute.ts",
     "soapbox": "curl -O https://dl.soapbox.pub/main/soapbox.zip && mkdir -p public && mv soapbox.zip public/ && cd public/ && unzip -o soapbox.zip && rm soapbox.zip",
+    "lingua": "mkdir -p data/lingua && cd data/lingua && curl -# -o lingua-wasm.zip -L https://github.com/xyzshantaram/lingua-wasm/releases/latest/download/lingua-wasm.zip && unzip -o lingua-wasm.zip && rm lingua-wasm.zip",
     "trends": "deno run -A --env-file --deny-read=.env scripts/trends.ts",
     "clean:deps": "deno cache --reload src/app.ts",
     "db:populate-search": "deno run -A --env-file --deny-read=.env scripts/db-populate-search.ts",
