@@ -303,6 +303,9 @@ class Conf {
   static get translationProvider(): string | undefined {
     return Deno.env.get('TRANSLATION_PROVIDER');
   }
+  static get languageDetector(): string {
+    return Deno.env.get('DITTO_LANG_DETECTOR') || 'lande';
+  }
   /** DeepL URL endpoint. */
   static get deeplBaseUrl(): string | undefined {
     return Deno.env.get('DEEPL_BASE_URL');
