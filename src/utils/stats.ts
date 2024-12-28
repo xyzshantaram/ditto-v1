@@ -1,5 +1,5 @@
 import { NostrEvent, NSchema as n, NStore } from '@nostrify/nostrify';
-import { Kysely, UpdateObject } from 'kysely';
+import { Kysely, sql, UpdateObject } from 'kysely';
 import { SetRequired } from 'type-fest';
 import { z } from 'zod';
 
@@ -107,30 +107,23 @@ async function handleEvent6(kysely: Kysely<DittoTables>, event: NostrEvent, x: n
 /** Update stats for kind 7 event. */
 async function handleEvent7(kysely: Kysely<DittoTables>, event: NostrEvent, x: number): Promise<void> {
   const id = event.tags.findLast(([name]) => name === 'e')?.[1];
+  // the '+' and '-' signs are considered emojis
   const emoji = event.content;
 
   if (id && emoji && (['+', '-'].includes(emoji) || /^\p{RGI_Emoji}$/v.test(emoji))) {
-    await updateEventStats(kysely, id, ({ reactions }) => {
-      const data: Record<string, number> = JSON.parse(reactions);
+    const baka = await sql`
+      UPDATE event_stats
+      SET reactions = jsonb_set(
+                          reactions::jsonb,
+                          ARRAY[${emoji}],
+                          CASE WHEN reactions::jsonb->${emoji} IS NULL THEN ${x}
+                               ELSE to_jsonb((reactions::jsonb->${emoji})::int + ${x}::int)
+                          END
+                      )
+      WHERE event_id = ${id}`
+      .execute(kysely);
 
-      // Increment or decrement the emoji count.
-      data[emoji] = (data[emoji] ?? 0) + x;
-
-      // Remove reactions with a count of 0 or less.
-      for (const key of Object.keys(data)) {
-        if (data[key] < 1) {
-          delete data[key];
-        }
-      }
-
-      // Total reactions count.
-      const count = Object.values(data).reduce((result, value) => result + value, 0);
-
-      return {
-        reactions: JSON.stringify(data),
-        reactions_count: count,
-      };
-    });
+    console.log(baka);
   }
 }
 
