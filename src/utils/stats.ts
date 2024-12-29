@@ -112,17 +112,29 @@ async function handleEvent7(kysely: Kysely<DittoTables>, event: NostrEvent, x: n
 
   if (id && emoji && (['+', '-'].includes(emoji) || /^\p{RGI_Emoji}$/v.test(emoji))) {
     const baka = await sql`
-      UPDATE event_stats
-      SET reactions = jsonb_set(
-                          reactions::jsonb,
-                          ARRAY[${emoji}],
-                          CASE WHEN reactions::jsonb->${emoji} IS NULL THEN ${x}
-                               ELSE to_jsonb((reactions::jsonb->${emoji})::int + ${x}::int)
-                          END
-                      )
-      WHERE event_id = ${id}`
+        UPDATE
+          event_stats
+        SET
+          reactions = CASE WHEN (
+            jsonb_set(
+              reactions :: jsonb,
+              ARRAY[${emoji}],
+              CASE WHEN reactions :: jsonb -> ${emoji} IS NULL THEN ${x} ELSE to_jsonb(
+                (reactions :: jsonb -> ${emoji}):: int + ${x} :: int
+              ) END
+            ):: jsonb ->> ${emoji}
+          ):: int = 0 THEN reactions :: jsonb - ${emoji} ELSE jsonb_set(
+            reactions :: jsonb,
+            ARRAY[${emoji}],
+            CASE WHEN reactions :: jsonb -> ${emoji} IS NULL THEN ${x} ELSE to_jsonb(
+              (reactions :: jsonb -> ${emoji}):: int + ${x} :: int
+            ) END
+          ) END,
+          reactions_count = reactions_count + ${x}
+        WHERE
+          event_id = ${id}
+    `
       .execute(kysely);
-
     console.log(baka);
   }
 }
