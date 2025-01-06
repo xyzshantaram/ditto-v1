@@ -1,5 +1,5 @@
 import { NostrEvent, NSchema as n, NStore } from '@nostrify/nostrify';
-import { Kysely, sql, UpdateObject } from 'kysely';
+import { Kysely, sql, UpdateObject, ValueExpression } from 'kysely';
 import { SetRequired } from 'type-fest';
 import { z } from 'zod';
 
@@ -111,31 +111,33 @@ async function handleEvent7(kysely: Kysely<DittoTables>, event: NostrEvent, x: n
   const emoji = event.content;
 
   if (id && emoji && (['+', '-'].includes(emoji) || /^\p{RGI_Emoji}$/v.test(emoji))) {
-    const baka = await sql`
-        UPDATE
-          event_stats
-        SET
-          reactions = CASE WHEN (
-            jsonb_set(
-              reactions :: jsonb,
-              ARRAY[${emoji}],
-              CASE WHEN reactions :: jsonb -> ${emoji} IS NULL THEN ${x} ELSE to_jsonb(
-                (reactions :: jsonb -> ${emoji}):: int + ${x} :: int
-              ) END
-            ):: jsonb ->> ${emoji}
-          ):: int = 0 THEN reactions :: jsonb - ${emoji} ELSE jsonb_set(
-            reactions :: jsonb,
-            ARRAY[${emoji}],
-            CASE WHEN reactions :: jsonb -> ${emoji} IS NULL THEN ${x} ELSE to_jsonb(
-              (reactions :: jsonb -> ${emoji}):: int + ${x} :: int
-            ) END
-          ) END,
-          reactions_count = reactions_count + ${x}
-        WHERE
-          event_id = ${id}
-    `
-      .execute(kysely);
-    console.log(baka);
+    await kysely.updateTable('event_stats')
+      .set((eb) => {
+        // Updated reactions.
+        const result = eb.fn('jsonb_set', [
+          sql`${eb.ref('reactions')}::jsonb`,
+          sql<string[]>`ARRAY[${emoji}]`,
+          eb.case()
+            .when(sql`reactions::jsonb -> ${emoji}`, 'is', null)
+            .then(sql`${x}::jsonb`) // Set the emoji count for the first time.
+            .else(eb.fn('to_jsonb', [sql`(reactions::jsonb -> ${emoji})::int + ${x}`])) // Increment or decrement the emoji count.
+            .end(),
+        ]);
+
+        // Only reactions with a count greater than zero.
+        const cleanedReactions = eb.case()
+          .when(sql`(${result} -> ${emoji})::int`, '<', 1)
+          .then(sql`${result} - ${emoji}`)
+          .else(result)
+          .end() as ValueExpression<DittoTables, 'event_stats', string>;
+
+        return {
+          reactions: cleanedReactions,
+          reactions_count: eb('reactions_count', '+', x),
+        };
+      })
+      .where('event_id', '=', id)
+      .execute();
   }
 }
 
