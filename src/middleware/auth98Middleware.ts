@@ -2,16 +2,11 @@ import { HTTPException } from '@hono/hono/http-exception';
 import { NostrEvent } from '@nostrify/nostrify';
 
 import { type AppContext, type AppMiddleware } from '@/app.ts';
+import { Conf } from '@/config.ts';
 import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
 import { Storages } from '@/storages.ts';
 import { localRequest } from '@/utils/api.ts';
-import {
-  buildAuthEventTemplate,
-  parseAuthRequest,
-  type ParseAuthRequestOpts,
-  validateAuthEvent,
-} from '@/utils/nip98.ts';
-import { Conf } from '@/config.ts';
+import { buildAuthEventTemplate, parseAuthRequest, ParseAuthRequestOpts, validateAuthEvent } from '@/utils/nip98.ts';
 
 /**
  * NIP-98 auth.
