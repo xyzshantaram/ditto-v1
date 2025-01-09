@@ -30,7 +30,7 @@ interface EventStatsRow {
   reposts_count: number;
   reactions_count: number;
   quotes_count: number;
-  reactions: string;
+  reactions: { [key: string]: number };
   zaps_amount: number;
 }
 

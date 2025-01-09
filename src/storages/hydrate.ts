@@ -91,7 +91,7 @@ export function assembleEvents(
 
   const eventStats = stats.events.map((stat) => ({
     ...stat,
-    reactions: JSON.parse(stat.reactions),
+    reactions: stat.reactions,
   }));
 
   for (const event of a) {
