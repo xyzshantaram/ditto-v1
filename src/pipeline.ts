@@ -234,7 +234,7 @@ async function parseMetadata(event: NostrEvent, signal: AbortSignal): Promise<vo
 async function setLanguage(event: NostrEvent): Promise<void> {
   if (event.kind !== 1) return;
 
-  const language = detectLanguage(event.content, 0.90);
+  const language = await detectLanguage(event.content, 0.90);
   if (!language) return;
 
   const kysely = await Storages.kysely();
