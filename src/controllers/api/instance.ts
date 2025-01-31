@@ -2,6 +2,7 @@ import denoJson from 'deno.json' with { type: 'json' };
 
 import { AppController } from '@/app.ts';
 import { Conf } from '@/config.ts';
+import { DittoController } from '@/DittoController.ts';
 import { Storages } from '@/storages.ts';
 import { getInstanceMetadata } from '@/utils/instance.ts';
 
@@ -16,9 +17,9 @@ const features = [
   'v2_suggestions',
 ];
 
-const instanceV1Controller: AppController = async (c) => {
+const instanceV1Controller = new DittoController({ requireSigner: true }, async (c) => {
   const { host, protocol } = Conf.url;
-  const meta = await getInstanceMetadata(await Storages.db(), c.req.raw.signal);
+  const meta = await getInstanceMetadata(c.store, c.signal);
 
   /** Protocol to use for WebSocket URLs, depending on the protocol of the `LOCAL_DOMAIN`. */
   const wsProtocol = protocol === 'http:' ? 'ws:' : 'wss:';
@@ -73,7 +74,7 @@ const instanceV1Controller: AppController = async (c) => {
     },
     rules: [],
   });
-};
+});
 
 const instanceV2Controller: AppController = async (c) => {
   const { host, protocol } = Conf.url;

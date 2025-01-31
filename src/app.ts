@@ -227,7 +227,7 @@ app.get(
 app.get(
   '/api/v1/instance',
   cacheControlMiddleware({ maxAge: 5, staleWhileRevalidate: 5, staleIfError: 21600, public: true }),
-  instanceV1Controller,
+  instanceV1Controller.handler,
 );
 app.get(
   '/api/v2/instance',
