@@ -36,6 +36,10 @@ export interface MastodonAccount {
     };
     ditto: {
       captcha_solved: boolean;
+      streak: {
+        days: number;
+        broken: number;
+      };
     };
   };
   statuses_count: number;

@@ -69,6 +69,11 @@ async function renderAccount(
       verified_at: null,
     })) ?? [];
 
+  const streakStart = parseInt(event.user?.tags.find(([name]) => name === 'ditto.streak.start')?.[1]!);
+  const streakEnd = parseInt(event.user?.tags.find(([name]) => name === 'ditto.streak.end')?.[1]!);
+  const streakDays = Math.ceil((streakEnd - streakStart) / 86400);
+  const streakBroken = Math.floor((nostrNow() - streakEnd) / 86400);
+
   return {
     id: pubkey,
     acct,
@@ -103,6 +108,10 @@ async function renderAccount(
         },
         ditto: {
           captcha_solved: names.has('captcha_solved'),
+          streak: {
+            days: streakDays || 0,
+            broken: streakBroken || 0,
+          },
         },
       }
       : undefined,
