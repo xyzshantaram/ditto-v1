@@ -1,5 +1,5 @@
 import { NostrEvent, NSchema as n, NStore } from '@nostrify/nostrify';
-import { Kysely, UpdateObject } from 'kysely';
+import { Kysely, sql, UpdateObject, ValueExpression } from 'kysely';
 import { SetRequired } from 'type-fest';
 import { z } from 'zod';
 
@@ -107,30 +107,45 @@ async function handleEvent6(kysely: Kysely<DittoTables>, event: NostrEvent, x: n
 /** Update stats for kind 7 event. */
 async function handleEvent7(kysely: Kysely<DittoTables>, event: NostrEvent, x: number): Promise<void> {
   const id = event.tags.findLast(([name]) => name === 'e')?.[1];
+  // the '+' and '-' signs are considered emojis.
   const emoji = event.content;
 
   if (id && emoji && (['+', '-'].includes(emoji) || /^\p{RGI_Emoji}$/v.test(emoji))) {
-    await updateEventStats(kysely, id, ({ reactions }) => {
-      const data: Record<string, number> = JSON.parse(reactions);
+    const empty = {
+      ...getEmpty_event_stats(id),
+      reactions: { [emoji]: x },
+      reactions_count: x,
+    };
 
-      // Increment or decrement the emoji count.
-      data[emoji] = (data[emoji] ?? 0) + x;
+    await kysely.insertInto('event_stats')
+      .values(empty)
+      .onConflict((oc) =>
+        oc.column('event_id').doUpdateSet((eb) => {
+          // Updated reactions.
+          const result = eb.fn('jsonb_set', [
+            eb.ref('event_stats.reactions'), // Target.
+            sql<string[]>`ARRAY[${emoji}]`, // Path.
+            eb.case()
+              .when(sql`event_stats.reactions -> ${emoji}`, 'is', null)
+              .then(sql`${x}::jsonb`) // New value: Initialize the emoji count for the specific 'emoji'.
+              .else(eb.fn('to_jsonb', [sql`(event_stats.reactions -> ${emoji})::int + ${x}`])) // New value: Increment or decrement the emoji count.
+              .end(),
+          ]);
 
-      // Remove reactions with a count of 0 or less.
-      for (const key of Object.keys(data)) {
-        if (data[key] < 1) {
-          delete data[key];
-        }
-      }
+          // Only reactions with a count greater than zero.
+          const cleanedReactions = eb.case()
+            .when(sql`(${result} -> ${emoji})::int`, '<', 1)
+            .then(sql`${result} - ${emoji}`)
+            .else(result)
+            .end() as ValueExpression<DittoTables, 'event_stats', { [key: string]: number }>;
 
-      // Total reactions count.
-      const count = Object.values(data).reduce((result, value) => result + value, 0);
-
-      return {
-        reactions: JSON.stringify(data),
-        reactions_count: count,
-      };
-    });
+          return {
+            reactions: cleanedReactions,
+            reactions_count: eb('event_stats.reactions_count', '+', x),
+          };
+        })
+      )
+      .execute();
   }
 }
 
@@ -236,15 +251,7 @@ export async function updateEventStats(
   eventId: string,
   fn: (prev: DittoTables['event_stats']) => UpdateObject<DittoTables, 'event_stats'>,
 ): Promise<void> {
-  const empty: DittoTables['event_stats'] = {
-    event_id: eventId,
-    replies_count: 0,
-    reposts_count: 0,
-    reactions_count: 0,
-    quotes_count: 0,
-    zaps_amount: 0,
-    reactions: '{}',
-  };
+  const empty = getEmpty_event_stats(eventId);
 
   const prev = await kysely
     .selectFrom('event_stats')
@@ -311,4 +318,19 @@ export async function refreshAuthorStats(
     .execute();
 
   return stats;
+}
+
+/** Returns an empty event_stats object. */
+function getEmpty_event_stats(id: string) {
+  const empty: DittoTables['event_stats'] = {
+    event_id: id,
+    replies_count: 0,
+    reposts_count: 0,
+    reactions_count: 0,
+    quotes_count: 0,
+    zaps_amount: 0,
+    reactions: {},
+  };
+
+  return empty;
 }
