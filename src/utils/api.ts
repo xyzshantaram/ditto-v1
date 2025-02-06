@@ -80,7 +80,7 @@ function updateListEvent(
 }
 
 /** Publish an admin event through the pipeline. */
-async function createAdminEvent(t: EventStub, c: AppContext): Promise<NostrEvent> {
+async function createAdminEvent(t: EventStub, c: Context): Promise<NostrEvent> {
   const signer = new AdminSigner();
 
   const event = await signer.signEvent({
@@ -110,7 +110,7 @@ function updateListAdminEvent(
 async function updateAdminEvent<E extends EventStub>(
   filter: UpdateEventFilter,
   fn: (prev: NostrEvent | undefined) => E,
-  c: AppContext,
+  c: Context,
 ): Promise<NostrEvent> {
   const store = await Storages.db();
   const [prev] = await store.query([filter], { limit: 1, signal: c.req.raw.signal });
@@ -156,7 +156,7 @@ async function updateNames(k: number, d: string, n: Record<string, boolean>, c: 
 }
 
 /** Push the event through the pipeline, rethrowing any RelayError. */
-async function publishEvent(event: NostrEvent, c: AppContext): Promise<NostrEvent> {
+async function publishEvent(event: NostrEvent, c: Context): Promise<NostrEvent> {
   logi({ level: 'info', ns: 'ditto.event', source: 'api', id: event.id, kind: event.kind });
   try {
     await pipeline.handleEvent(event, { source: 'api', signal: c.req.raw.signal });

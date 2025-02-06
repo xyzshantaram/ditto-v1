@@ -108,6 +108,7 @@ import {
   zapController,
   zappedByController,
 } from '@/controllers/api/statuses.ts';
+import streakApp from '@/controllers/api/streak.ts';
 import { streamingController } from '@/controllers/api/streaming.ts';
 import {
   localSuggestionsController,
@@ -382,6 +383,7 @@ app.put('/api/v1/admin/ditto/relays', requireRole('admin'), adminSetRelaysContro
 
 app.put('/api/v1/admin/ditto/instance', requireRole('admin'), updateInstanceController);
 
+app.route('/api/v1/ditto/streak', streakApp);
 app.post('/api/v1/ditto/names', requireSigner, nameRequestController);
 app.get('/api/v1/ditto/names', requireSigner, nameRequestsController);
 
