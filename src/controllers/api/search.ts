@@ -10,8 +10,6 @@ import { extractIdentifier, lookupPubkey } from '@/utils/lookup.ts';
 import { nip05Cache } from '@/utils/nip05.ts';
 import { accountFromPubkey, renderAccount } from '@/views/mastodon/accounts.ts';
 import { renderStatus } from '@/views/mastodon/statuses.ts';
-import { getFollowedPubkeys } from '@/queries.ts';
-import { getPubkeysBySearch } from '@/utils/search.ts';
 import { paginated } from '@/utils/api.ts';
 
 const searchQuerySchema = z.object({
@@ -82,7 +80,7 @@ const searchController: AppController = async (c) => {
 
 /** Get events for the search params. */
 async function searchEvents(
-  { q, type, since, until, limit, offset, account_id, viewerPubkey }: SearchQuery & { viewerPubkey?: string },
+  { q, type, since, until, limit, account_id }: SearchQuery & { viewerPubkey?: string },
   signal: AbortSignal,
 ): Promise<NostrEvent[]> {
   // Hashtag search is not supported.
@@ -99,17 +97,6 @@ async function searchEvents(
     until,
     limit,
   };
-
-  const kysely = await Storages.kysely();
-
-  // For account search, use a special index, and prioritize followed accounts.
-  if (type === 'accounts') {
-    const following = viewerPubkey ? await getFollowedPubkeys(viewerPubkey) : new Set<string>();
-    const searchPubkeys = await getPubkeysBySearch(kysely, { q, limit, offset, following });
-
-    filter.authors = [...searchPubkeys];
-    filter.search = undefined;
-  }
 
   // Results should only be shown from one author.
   if (account_id) {
