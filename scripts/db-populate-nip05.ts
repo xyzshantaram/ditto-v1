@@ -1,10 +1,21 @@
 import { Semaphore } from '@core/asyncutil';
+import { DittoConf } from '@ditto/conf';
 import { NostrEvent } from '@nostrify/nostrify';
 
-import { updateAuthorData } from '../packages/ditto/pipeline.ts';
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoPipeline } from '../packages/ditto/DittoPipeline.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 
-const kysely = await Storages.kysely();
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
+
+const pipeline = new DittoPipeline({
+  conf,
+  kysely: await storages.kysely(),
+  store: await storages.db(),
+  pubsub: await storages.pubsub(),
+});
+
+const kysely = await storages.kysely();
 const sem = new Semaphore(5);
 
 const query = kysely
@@ -19,7 +30,7 @@ for await (const row of query.stream(100)) {
 
   sem.lock(async () => {
     const event: NostrEvent = { ...row, created_at: Number(row.created_at) };
-    await updateAuthorData(event, AbortSignal.timeout(3000));
+    await pipeline.updateAuthorData(event, AbortSignal.timeout(3000));
   });
 }
 

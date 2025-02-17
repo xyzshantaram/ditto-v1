@@ -1,15 +1,17 @@
-import { NostrEvent, NostrFilter, NSchema as n } from '@nostrify/nostrify';
+import { DittoConf } from '@ditto/conf';
+import { DittoTables } from '@ditto/db';
+import { NostrEvent, NostrFilter, NSchema as n, NStore } from '@nostrify/nostrify';
+import { Kysely } from 'kysely';
 import { nip19 } from 'nostr-tools';
 import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
 import { booleanParamSchema } from '@/schema.ts';
-import { Storages } from '@/storages.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { extractIdentifier, lookupPubkey } from '@/utils/lookup.ts';
-import { nip05Cache } from '@/utils/nip05.ts';
-import { accountFromPubkey, renderAccount } from '@/views/mastodon/accounts.ts';
-import { renderStatus } from '@/views/mastodon/statuses.ts';
+import { resolveNip05 } from '@/utils/nip05.ts';
+import { AccountView } from '@/views/mastodon/AccountView.ts';
+import { StatusView } from '@/views/mastodon/StatusView.ts';
 import { getFollowedPubkeys } from '@/queries.ts';
 import { getPubkeysBySearch } from '@/utils/search.ts';
 import { paginated, paginatedList } from '@/utils/api.ts';
@@ -26,23 +28,26 @@ const searchQuerySchema = z.object({
 type SearchQuery = z.infer<typeof searchQuerySchema> & { since?: number; until?: number; limit: number };
 
 const searchController: AppController = async (c) => {
+  const { pagination } = c.var;
+
   const result = searchQuerySchema.safeParse(c.req.query());
-  const params = c.get('pagination');
-  const { signal } = c.req.raw;
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
 
   if (!result.success) {
     return c.json({ error: 'Bad request', schema: result.error }, 422);
   }
 
-  const event = await lookupEvent({ ...result.data, ...params }, signal);
+  const event = await lookupEvent(c.var, { ...result.data, ...pagination });
   const lookup = extractIdentifier(result.data.q);
+
+  const accountView = new AccountView(c.var);
+  const statusView = new StatusView(c.var);
 
   // Render account from pubkey.
   if (!event && lookup) {
-    const pubkey = await lookupPubkey(lookup);
+    const pubkey = await lookupPubkey(c.var, lookup);
+
     return c.json({
-      accounts: pubkey ? [accountFromPubkey(pubkey)] : [],
+      accounts: pubkey ? [accountView.render(undefined, pubkey)] : [],
       statuses: [],
       hashtags: [],
     });
@@ -54,19 +59,19 @@ const searchController: AppController = async (c) => {
     events = [event];
   }
 
-  events.push(...(await searchEvents({ ...result.data, ...params, viewerPubkey }, signal)));
+  events.push(...(await searchEvents(c.var, { ...result.data, ...pagination })));
 
   const [accounts, statuses] = await Promise.all([
     Promise.all(
       events
         .filter((event) => event.kind === 0)
-        .map((event) => renderAccount(event))
+        .map((event) => accountView.render(event))
         .filter(Boolean),
     ),
     Promise.all(
       events
         .filter((event) => event.kind === 1)
-        .map((event) => renderStatus(event, { viewerPubkey }))
+        .map((event) => statusView.render(event))
         .filter(Boolean),
     ),
   ]);
@@ -78,23 +83,30 @@ const searchController: AppController = async (c) => {
   };
 
   if (result.data.type === 'accounts') {
-    return paginatedList(c, { ...result.data, ...params }, body);
+    return paginatedList(c, { ...result.data, ...pagination }, body);
   } else {
     return paginated(c, events, body);
   }
 };
 
+interface SearchEventsOpts {
+  conf: DittoConf;
+  store: NStore;
+  kysely: Kysely<DittoTables>;
+  signal?: AbortSignal;
+}
+
 /** Get events for the search params. */
 async function searchEvents(
+  opts: SearchEventsOpts,
   { q, type, since, until, limit, offset, account_id, viewerPubkey }: SearchQuery & { viewerPubkey?: string },
-  signal: AbortSignal,
 ): Promise<NostrEvent[]> {
+  const { store, kysely, signal } = opts;
+
   // Hashtag search is not supported.
   if (type === 'hashtags') {
     return Promise.resolve([]);
   }
-
-  const store = await Storages.search();
 
   const filter: NostrFilter = {
     kinds: typeToKinds(type),
@@ -104,11 +116,9 @@ async function searchEvents(
     limit,
   };
 
-  const kysely = await Storages.kysely();
-
   // For account search, use a special index, and prioritize followed accounts.
   if (type === 'accounts') {
-    const following = viewerPubkey ? await getFollowedPubkeys(viewerPubkey) : new Set<string>();
+    const following = viewerPubkey ? await getFollowedPubkeys(store, viewerPubkey) : new Set<string>();
     const searchPubkeys = await getPubkeysBySearch(kysely, { q, limit, offset, following });
 
     filter.authors = [...searchPubkeys];
@@ -123,7 +133,7 @@ async function searchEvents(
   // Query the events.
   let events = await store
     .query([filter], { signal })
-    .then((events) => hydrateEvents({ events, store, signal }));
+    .then((events) => hydrateEvents(opts, events));
 
   // When using an authors filter, return the events in the same order as the filter.
   if (filter.authors) {
@@ -147,18 +157,27 @@ function typeToKinds(type: SearchQuery['type']): number[] {
   }
 }
 
-/** Resolve a searched value into an event, if applicable. */
-async function lookupEvent(query: SearchQuery, signal: AbortSignal): Promise<NostrEvent | undefined> {
-  const filters = await getLookupFilters(query, signal);
-  const store = await Storages.search();
+interface LookupEventOpts {
+  conf: DittoConf;
+  store: NStore;
+  kysely: Kysely<DittoTables>;
+  signal?: AbortSignal;
+}
 
-  return store.query(filters, { limit: 1, signal })
-    .then((events) => hydrateEvents({ events, store, signal }))
+/** Resolve a searched value into an event, if applicable. */
+async function lookupEvent(opts: LookupEventOpts, query: SearchQuery): Promise<NostrEvent | undefined> {
+  const { store, signal } = opts;
+  const filters = await getLookupFilters(opts, query);
+
+  const _opts = { limit: 1, signal };
+
+  return store.query(filters, _opts)
+    .then((events) => hydrateEvents(opts, events))
     .then(([event]) => event);
 }
 
 /** Get filters to lookup the input value. */
-async function getLookupFilters({ q, type, resolve }: SearchQuery, signal: AbortSignal): Promise<NostrFilter[]> {
+async function getLookupFilters(opts: LookupEventOpts, { q, type, resolve }: SearchQuery): Promise<NostrFilter[]> {
   const accounts = !type || type === 'accounts';
   const statuses = !type || type === 'statuses';
 
@@ -168,8 +187,8 @@ async function getLookupFilters({ q, type, resolve }: SearchQuery, signal: Abort
 
   if (n.id().safeParse(q).success) {
     const filters: NostrFilter[] = [];
-    if (accounts) filters.push({ kinds: [0], authors: [q] });
-    if (statuses) filters.push({ kinds: [1, 20], ids: [q] });
+    if (accounts) filters.push({ kinds: [0], authors: [q], limit: 1 });
+    if (statuses) filters.push({ kinds: [1, 20], ids: [q], limit: 1 });
     return filters;
   }
 
@@ -181,16 +200,16 @@ async function getLookupFilters({ q, type, resolve }: SearchQuery, signal: Abort
     const filters: NostrFilter[] = [];
     switch (result.type) {
       case 'npub':
-        if (accounts) filters.push({ kinds: [0], authors: [result.data] });
+        if (accounts) filters.push({ kinds: [0], authors: [result.data], limit: 1 });
         break;
       case 'nprofile':
-        if (accounts) filters.push({ kinds: [0], authors: [result.data.pubkey] });
+        if (accounts) filters.push({ kinds: [0], authors: [result.data.pubkey], limit: 1 });
         break;
       case 'note':
-        if (statuses) filters.push({ kinds: [1, 20], ids: [result.data] });
+        if (statuses) filters.push({ kinds: [1, 20], ids: [result.data], limit: 1 });
         break;
       case 'nevent':
-        if (statuses) filters.push({ kinds: [1, 20], ids: [result.data.id] });
+        if (statuses) filters.push({ kinds: [1, 20], ids: [result.data.id], limit: 1 });
         break;
     }
     return filters;
@@ -199,9 +218,9 @@ async function getLookupFilters({ q, type, resolve }: SearchQuery, signal: Abort
   }
 
   try {
-    const { pubkey } = await nip05Cache.fetch(lookup, { signal });
+    const { pubkey } = await resolveNip05(opts, lookup);
     if (pubkey) {
-      return [{ kinds: [0], authors: [pubkey] }];
+      return [{ kinds: [0], authors: [pubkey], limit: 1 }];
     }
   } catch {
     // fall through

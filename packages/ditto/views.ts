@@ -1,12 +1,10 @@
 import { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 import { AppContext } from '@/app.ts';
-import { Storages } from '@/storages.ts';
-import { renderAccount } from '@/views/mastodon/accounts.ts';
-import { renderStatus } from '@/views/mastodon/statuses.ts';
-import { paginated, paginatedList } from '@/utils/api.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { accountFromPubkey } from '@/views/mastodon/accounts.ts';
+import { paginated, paginatedList } from '@/utils/api.ts';
+import { AccountView } from '@/views/mastodon/AccountView.ts';
+import { StatusView } from '@/views/mastodon/StatusView.ts';
 
 interface RenderEventAccountsOpts {
   signal?: AbortSignal;
@@ -19,25 +17,17 @@ async function renderEventAccounts(c: AppContext, filters: NostrFilter[], opts?:
     return c.json([]);
   }
 
+  const { store } = c.var;
   const { signal = AbortSignal.timeout(1000), filterFn } = opts ?? {};
-
-  const store = await Storages.db();
 
   const events = await store.query(filters, { signal })
     // Deduplicate by author.
     .then((events) => Array.from(new Map(events.map((event) => [event.pubkey, event])).values()))
-    .then((events) => hydrateEvents({ events, store, signal }))
+    .then((events) => hydrateEvents(c.var, events))
     .then((events) => filterFn ? events.filter(filterFn) : events);
 
-  const accounts = await Promise.all(
-    events.map(({ author, pubkey }) => {
-      if (author) {
-        return renderAccount(author);
-      } else {
-        return accountFromPubkey(pubkey);
-      }
-    }),
-  );
+  const view = new AccountView(c.var);
+  const accounts = events.map(({ author, pubkey }) => view.render(author, pubkey));
 
   return paginated(c, events, accounts);
 }
@@ -46,22 +36,19 @@ async function renderAccounts(c: AppContext, pubkeys: string[]) {
   const { offset, limit } = c.get('listPagination');
   const authors = pubkeys.reverse().slice(offset, offset + limit);
 
-  const store = await Storages.db();
+  const { store } = c.var;
   const signal = c.req.raw.signal;
 
-  const events = await store.query([{ kinds: [0], authors }], { signal })
-    .then((events) => hydrateEvents({ events, store, signal }));
+  const events = await store
+    .query([{ kinds: [0], authors }], { signal })
+    .then((events) => hydrateEvents(c.var, events));
 
-  const accounts = await Promise.all(
-    authors.map((pubkey) => {
-      const event = events.find((event) => event.pubkey === pubkey);
-      if (event) {
-        return renderAccount(event);
-      } else {
-        return accountFromPubkey(pubkey);
-      }
-    }),
-  );
+  const view = new AccountView(c.var);
+
+  const accounts = authors.map((pubkey) => {
+    const event = events.find((event) => event.pubkey === pubkey);
+    return view.render(event, pubkey);
+  });
 
   return paginatedList(c, { offset, limit }, accounts);
 }
@@ -72,11 +59,12 @@ async function renderStatuses(c: AppContext, ids: string[], signal = AbortSignal
     return c.json([]);
   }
 
-  const store = await Storages.db();
-  const { limit } = c.get('pagination');
+  const { store, pagination } = c.var;
+  const { limit } = pagination;
 
-  const events = await store.query([{ kinds: [1, 20], ids, limit }], { signal })
-    .then((events) => hydrateEvents({ events, store, signal }));
+  const events = await store
+    .query([{ kinds: [1, 20], ids, limit }], { signal })
+    .then((events) => hydrateEvents(c.var, events));
 
   if (!events.length) {
     return c.json([]);
@@ -84,10 +72,10 @@ async function renderStatuses(c: AppContext, ids: string[], signal = AbortSignal
 
   const sortedEvents = [...events].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
 
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
+  const view = new StatusView(c.var);
 
   const statuses = await Promise.all(
-    sortedEvents.map((event) => renderStatus(event, { viewerPubkey })),
+    sortedEvents.map((event) => view.render(event)),
   );
 
   // TODO: pagination with min_id and max_id based on the order of `ids`.

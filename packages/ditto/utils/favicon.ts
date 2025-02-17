@@ -1,4 +1,5 @@
 import { DOMParser } from '@b-fuze/deno-dom';
+import { DittoConf } from '@ditto/conf';
 import { DittoTables } from '@ditto/db';
 import { cachedFaviconsSizeGauge } from '@ditto/metrics';
 import { logi } from '@soapbox/logi';
@@ -6,29 +7,41 @@ import { safeFetch } from '@soapbox/safe-fetch';
 import { Kysely } from 'kysely';
 import tldts from 'tldts';
 
-import { Conf } from '@/config.ts';
-import { Storages } from '@/storages.ts';
 import { nostrNow } from '@/utils.ts';
 import { SimpleLRU } from '@/utils/SimpleLRU.ts';
 
-export const faviconCache = new SimpleLRU<string, URL>(
-  async (domain, { signal }) => {
-    const kysely = await Storages.kysely();
+let faviconCache: SimpleLRU<string, URL> | undefined;
 
-    const row = await queryFavicon(kysely, domain);
+interface ResolveFaviconOpts {
+  conf: DittoConf;
+  kysely: Kysely<DittoTables>;
+  signal?: AbortSignal;
+}
 
-    if (row && (nostrNow() - row.last_updated_at) < (Conf.caches.favicon.ttl / 1000)) {
-      return new URL(row.favicon);
-    }
+export function resolveFavicon(opts: ResolveFaviconOpts, domain: string): Promise<URL> {
+  const { conf, kysely } = opts;
 
-    const url = await fetchFavicon(domain, signal);
+  if (!faviconCache) {
+    faviconCache = new SimpleLRU<string, URL>(
+      async (domain, { signal }) => {
+        const row = await queryFavicon(kysely, domain);
 
-    await insertFavicon(kysely, domain, url.href);
+        if (row && (nostrNow() - row.last_updated_at) < (conf.caches.favicon.ttl / 1000)) {
+          return new URL(row.favicon);
+        }
 
-    return url;
-  },
-  { ...Conf.caches.favicon, gauge: cachedFaviconsSizeGauge },
-);
+        const url = await fetchFavicon(domain, signal);
+
+        await insertFavicon(kysely, domain, url.href);
+
+        return url;
+      },
+      { ...conf.caches.favicon, gauge: cachedFaviconsSizeGauge },
+    );
+  }
+
+  return faviconCache.fetch(domain, opts);
+}
 
 async function queryFavicon(
   kysely: Kysely<DittoTables>,
@@ -38,6 +51,7 @@ async function queryFavicon(
     .selectFrom('domain_favicons')
     .selectAll()
     .where('domain', '=', domain)
+    .limit(1)
     .executeTakeFirst();
 }
 

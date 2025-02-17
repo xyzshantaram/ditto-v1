@@ -1,10 +1,9 @@
 // deno-lint-ignore-file require-await
 import { HTTPException } from '@hono/hono/http-exception';
-import { NConnectSigner, NostrEvent, NostrSigner } from '@nostrify/nostrify';
-
-import { Storages } from '@/storages.ts';
+import { NConnectSigner, NostrEvent, NostrSigner, NRelay } from '@nostrify/nostrify';
 
 interface ConnectSignerOpts {
+  relay: NRelay;
   bunkerPubkey: string;
   userPubkey: string;
   signer: NostrSigner;
@@ -27,8 +26,7 @@ export class ConnectSigner implements NostrSigner {
     return new NConnectSigner({
       encryption: 'nip44',
       pubkey: this.opts.bunkerPubkey,
-      // TODO: use a remote relay for `nprofile` signing (if present and `Conf.relay` isn't already in the list)
-      relay: await Storages.pubsub(),
+      relay: this.opts.relay,
       signer,
       timeout: 60_000,
     });

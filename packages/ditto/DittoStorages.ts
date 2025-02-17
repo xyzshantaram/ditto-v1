@@ -1,32 +1,34 @@
 // deno-lint-ignore-file require-await
+import { DittoConf } from '@ditto/conf';
 import { type DittoDatabase, DittoDB } from '@ditto/db';
 import { internalSubscriptionsSizeGauge } from '@ditto/metrics';
 import { logi } from '@soapbox/logi';
 
-import { Conf } from '@/config.ts';
 import { wsUrlSchema } from '@/schema.ts';
 import { AdminStore } from '@/storages/AdminStore.ts';
 import { EventsDB } from '@/storages/EventsDB.ts';
-import { SearchStore } from '@/storages/search-store.ts';
 import { InternalRelay } from '@/storages/InternalRelay.ts';
 import { NPool, NRelay1 } from '@nostrify/nostrify';
 import { getRelays } from '@/utils/outbox.ts';
 import { seedZapSplits } from '@/utils/zap-split.ts';
 
-export class Storages {
-  private static _db: Promise<EventsDB> | undefined;
-  private static _database: Promise<DittoDatabase> | undefined;
-  private static _admin: Promise<AdminStore> | undefined;
-  private static _client: Promise<NPool<NRelay1>> | undefined;
-  private static _pubsub: Promise<InternalRelay> | undefined;
-  private static _search: Promise<SearchStore> | undefined;
+export class DittoStorages {
+  private _db: Promise<EventsDB> | undefined;
+  private _database: Promise<DittoDatabase> | undefined;
+  private _admin: Promise<AdminStore> | undefined;
+  private _pool: Promise<NPool<NRelay1>> | undefined;
+  private _pubsub: Promise<InternalRelay> | undefined;
 
-  public static async database(): Promise<DittoDatabase> {
+  constructor(private conf: DittoConf) {}
+
+  public async database(): Promise<DittoDatabase> {
+    const { conf } = this;
+
     if (!this._database) {
       this._database = (async () => {
-        const db = DittoDB.create(Conf.databaseUrl, {
-          poolSize: Conf.pg.poolSize,
-          debug: Conf.pgliteDebug,
+        const db = DittoDB.create(conf.databaseUrl, {
+          poolSize: conf.pg.poolSize,
+          debug: conf.pgliteDebug,
         });
         await DittoDB.migrate(db.kysely);
         return db;
@@ -35,17 +37,19 @@ export class Storages {
     return this._database;
   }
 
-  public static async kysely(): Promise<DittoDatabase['kysely']> {
+  public async kysely(): Promise<DittoDatabase['kysely']> {
     const { kysely } = await this.database();
     return kysely;
   }
 
   /** SQL database to store events this Ditto server cares about. */
-  public static async db(): Promise<EventsDB> {
+  public async db(): Promise<EventsDB> {
+    const { conf } = this;
+
     if (!this._db) {
       this._db = (async () => {
         const kysely = await this.kysely();
-        const store = new EventsDB({ kysely, pubkey: Conf.pubkey, timeout: Conf.db.timeouts.default });
+        const store = new EventsDB({ kysely, pubkey: conf.pubkey, timeout: conf.db.timeouts.default });
         await seedZapSplits(store);
         return store;
       })();
@@ -54,7 +58,7 @@ export class Storages {
   }
 
   /** Admin user storage. */
-  public static async admin(): Promise<AdminStore> {
+  public async admin(): Promise<AdminStore> {
     if (!this._admin) {
       this._admin = Promise.resolve(new AdminStore(await this.db()));
     }
@@ -62,7 +66,7 @@ export class Storages {
   }
 
   /** Internal pubsub relay between controllers and the pipeline. */
-  public static async pubsub(): Promise<InternalRelay> {
+  public async pubsub(): Promise<InternalRelay> {
     if (!this._pubsub) {
       this._pubsub = Promise.resolve(new InternalRelay({ gauge: internalSubscriptionsSizeGauge }));
     }
@@ -70,13 +74,15 @@ export class Storages {
   }
 
   /** Relay pool storage. */
-  public static async client(): Promise<NPool<NRelay1>> {
-    if (!this._client) {
-      this._client = (async () => {
+  public async pool(): Promise<NPool<NRelay1>> {
+    const { conf } = this;
+
+    if (!this._pool) {
+      this._pool = (async () => {
         const db = await this.db();
 
         const [relayList] = await db.query([
-          { kinds: [10002], authors: [Conf.pubkey], limit: 1 },
+          { kinds: [10002], authors: [conf.pubkey], limit: 1 },
         ]);
 
         const tags = relayList?.tags ?? [];
@@ -113,8 +119,8 @@ export class Storages {
             }));
           },
           eventRouter: async (event) => {
-            const relaySet = await getRelays(await Storages.db(), event.pubkey);
-            relaySet.delete(Conf.relay);
+            const relaySet = await getRelays(await this.db(), event.pubkey);
+            relaySet.delete(conf.relay);
 
             const relays = [...relaySet].slice(0, 4);
             return relays;
@@ -122,19 +128,6 @@ export class Storages {
         });
       })();
     }
-    return this._client;
-  }
-
-  /** Storage to use for remote search. */
-  public static async search(): Promise<SearchStore> {
-    if (!this._search) {
-      this._search = Promise.resolve(
-        new SearchStore({
-          relay: Conf.searchRelay,
-          fallback: await this.db(),
-        }),
-      );
-    }
-    return this._search;
+    return this._pool;
   }
 }

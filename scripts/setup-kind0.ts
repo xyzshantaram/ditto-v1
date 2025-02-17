@@ -1,10 +1,13 @@
+import { DittoConf } from '@ditto/conf';
 import { Command } from 'commander';
 import { NostrEvent } from 'nostr-tools';
 
 import { AdminSigner } from '../packages/ditto/signers/AdminSigner.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 import { nostrNow } from '../packages/ditto/utils.ts';
-import { Conf } from '../packages/ditto/config.ts';
-import { Storages } from '../packages/ditto/storages.ts';
+
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
 
 function die(code: number, ...args: unknown[]) {
   console.error(...args);
@@ -34,9 +37,9 @@ if (import.meta.main) {
       content.lud16 = lightning;
       content.name = name;
       content.picture = image;
-      content.website = Conf.localDomain;
+      content.website = conf.localDomain;
 
-      const signer = new AdminSigner();
+      const signer = new AdminSigner(conf);
       const bare: Omit<NostrEvent, 'id' | 'sig' | 'pubkey'> = {
         created_at: nostrNow(),
         kind: 0,
@@ -46,7 +49,7 @@ if (import.meta.main) {
       const signed = await signer.signEvent(bare);
 
       console.log({ content, signed });
-      await Storages.db().then((store) => store.event(signed));
+      await storages.db().then((store) => store.event(signed));
     });
 
   await kind0.parseAsync();

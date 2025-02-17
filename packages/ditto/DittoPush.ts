@@ -1,19 +1,27 @@
+import { type DittoConf } from '@ditto/conf';
 import { ApplicationServer, PushMessageOptions, PushSubscriber, PushSubscription } from '@negrel/webpush';
+import { type NStore } from '@nostrify/nostrify';
 import { logi } from '@soapbox/logi';
 
-import { Conf } from '@/config.ts';
-import { Storages } from '@/storages.ts';
 import { getInstanceMetadata } from '@/utils/instance.ts';
 
-export class DittoPush {
-  static _server: Promise<ApplicationServer | undefined> | undefined;
+interface DittoPushOpts {
+  conf: DittoConf;
+  store: NStore;
+}
 
-  static get server(): Promise<ApplicationServer | undefined> {
+export class DittoPush {
+  _server: Promise<ApplicationServer | undefined> | undefined;
+
+  constructor(private opts: DittoPushOpts) {}
+
+  get server(): Promise<ApplicationServer | undefined> {
     if (!this._server) {
       this._server = (async () => {
-        const store = await Storages.db();
-        const meta = await getInstanceMetadata(store);
-        const keys = await Conf.vapidKeys;
+        const { conf } = this.opts;
+
+        const meta = await getInstanceMetadata(this.opts);
+        const keys = await conf.vapidKeys;
 
         if (keys) {
           return await ApplicationServer.new({
@@ -33,7 +41,7 @@ export class DittoPush {
     return this._server;
   }
 
-  static async push(
+  async push(
     subscription: PushSubscription,
     json: object,
     opts: PushMessageOptions = {},

@@ -1,3 +1,4 @@
+import { DittoConf } from '@ditto/conf';
 import { DittoTables } from '@ditto/db';
 import { NStore } from '@nostrify/nostrify';
 import { Kysely } from 'kysely';
@@ -5,24 +6,22 @@ import { matchFilter } from 'nostr-tools';
 import { NSchema as n } from '@nostrify/nostrify';
 import { z } from 'zod';
 
-import { Conf } from '@/config.ts';
 import { type DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { fallbackAuthor } from '@/utils.ts';
 import { findQuoteTag } from '@/utils/tags.ts';
 import { findQuoteInContent } from '@/utils/note.ts';
 import { getAmount } from '@/utils/bolt11.ts';
-import { Storages } from '@/storages.ts';
 
 interface HydrateOpts {
-  events: DittoEvent[];
+  conf: DittoConf;
   store: NStore;
+  kysely: Kysely<DittoTables>;
   signal?: AbortSignal;
-  kysely?: Kysely<DittoTables>;
 }
 
 /** Hydrate events using the provided storage. */
-async function hydrateEvents(opts: HydrateOpts): Promise<DittoEvent[]> {
-  const { events, store, signal, kysely = await Storages.kysely() } = opts;
+async function hydrateEvents(opts: HydrateOpts, events: DittoEvent[]): Promise<DittoEvent[]> {
+  const { conf, kysely } = opts;
 
   if (!events.length) {
     return events;
@@ -30,23 +29,23 @@ async function hydrateEvents(opts: HydrateOpts): Promise<DittoEvent[]> {
 
   const cache = [...events];
 
-  for (const event of await gatherRelatedEvents({ events: cache, store, signal })) {
+  for (const event of await gatherRelatedEvents(opts, cache)) {
     cache.push(event);
   }
 
-  for (const event of await gatherQuotes({ events: cache, store, signal })) {
+  for (const event of await gatherQuotes(opts, cache)) {
     cache.push(event);
   }
 
-  for (const event of await gatherProfiles({ events: cache, store, signal })) {
+  for (const event of await gatherProfiles(opts, cache)) {
     cache.push(event);
   }
 
-  for (const event of await gatherUsers({ events: cache, store, signal })) {
+  for (const event of await gatherUsers(opts, cache)) {
     cache.push(event);
   }
 
-  for (const event of await gatherInfo({ events: cache, store, signal })) {
+  for (const event of await gatherInfo(opts, cache)) {
     cache.push(event);
   }
 
@@ -80,14 +79,15 @@ async function hydrateEvents(opts: HydrateOpts): Promise<DittoEvent[]> {
   const results = [...new Map(cache.map((event) => [event.id, event])).values()];
 
   // First connect all the events to each-other, then connect the connected events to the original list.
-  assembleEvents(results, results, stats);
-  assembleEvents(events, results, stats);
+  assembleEvents(conf, results, results, stats);
+  assembleEvents(conf, events, results, stats);
 
   return events;
 }
 
 /** Connect the events in list `b` to the DittoEvent fields in list `a`. */
 export function assembleEvents(
+  conf: DittoConf,
   a: DittoEvent[],
   b: DittoEvent[],
   stats: {
@@ -96,7 +96,7 @@ export function assembleEvents(
     favicons: Record<string, string>;
   },
 ): DittoEvent[] {
-  const admin = Conf.pubkey;
+  const admin = conf.pubkey;
 
   const authorStats = stats.authors.reduce((result, { pubkey, ...stat }) => {
     result[pubkey] = {
@@ -198,7 +198,7 @@ export function assembleEvents(
 }
 
 /** Collect event targets (eg reposts, quote posts, reacted posts, etc.) */
-function gatherRelatedEvents({ events, store, signal }: HydrateOpts): Promise<DittoEvent[]> {
+function gatherRelatedEvents({ store, signal }: HydrateOpts, events: DittoEvent[]): Promise<DittoEvent[]> {
   const ids = new Set<string>();
 
   for (const event of events) {
@@ -240,7 +240,7 @@ function gatherRelatedEvents({ events, store, signal }: HydrateOpts): Promise<Di
 }
 
 /** Collect quotes from the events. */
-function gatherQuotes({ events, store, signal }: HydrateOpts): Promise<DittoEvent[]> {
+function gatherQuotes({ store, signal }: HydrateOpts, events: DittoEvent[]): Promise<DittoEvent[]> {
   const ids = new Set<string>();
 
   for (const event of events) {
@@ -259,7 +259,7 @@ function gatherQuotes({ events, store, signal }: HydrateOpts): Promise<DittoEven
 }
 
 /** Collect profiles from the events. */
-async function gatherProfiles({ events, store, signal }: HydrateOpts): Promise<DittoEvent[]> {
+async function gatherProfiles({ store, signal }: HydrateOpts, events: DittoEvent[]): Promise<DittoEvent[]> {
   const pubkeys = new Set<string>();
 
   for (const event of events) {
@@ -316,7 +316,7 @@ async function gatherProfiles({ events, store, signal }: HydrateOpts): Promise<D
 }
 
 /** Collect users from the events. */
-function gatherUsers({ events, store, signal }: HydrateOpts): Promise<DittoEvent[]> {
+function gatherUsers({ conf, store, signal }: HydrateOpts, events: DittoEvent[]): Promise<DittoEvent[]> {
   const pubkeys = new Set(events.map((event) => event.pubkey));
 
   if (!pubkeys.size) {
@@ -324,13 +324,13 @@ function gatherUsers({ events, store, signal }: HydrateOpts): Promise<DittoEvent
   }
 
   return store.query(
-    [{ kinds: [30382], authors: [Conf.pubkey], '#d': [...pubkeys], limit: pubkeys.size }],
+    [{ kinds: [30382], authors: [conf.pubkey], '#d': [...pubkeys], limit: pubkeys.size }],
     { signal },
   );
 }
 
 /** Collect info events from the events. */
-function gatherInfo({ events, store, signal }: HydrateOpts): Promise<DittoEvent[]> {
+function gatherInfo({ conf, store, signal }: HydrateOpts, events: DittoEvent[]): Promise<DittoEvent[]> {
   const ids = new Set<string>();
 
   for (const event of events) {
@@ -344,7 +344,7 @@ function gatherInfo({ events, store, signal }: HydrateOpts): Promise<DittoEvent[
   }
 
   return store.query(
-    [{ kinds: [30383], authors: [Conf.pubkey], '#d': [...ids], limit: ids.size }],
+    [{ kinds: [30383], authors: [conf.pubkey], '#d': [...ids], limit: ids.size }],
     { signal },
   );
 }

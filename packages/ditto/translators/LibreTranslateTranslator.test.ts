@@ -1,6 +1,6 @@
+import { DittoConf } from '@ditto/conf';
 import { assertEquals } from '@std/assert';
 
-import { Conf } from '@/config.ts';
 import { LibreTranslateTranslator } from '@/translators/LibreTranslateTranslator.ts';
 import { getLanguage } from '@/test.ts';
 
@@ -8,7 +8,7 @@ const {
   libretranslateBaseUrl: baseUrl,
   libretranslateApiKey: apiKey,
   translationProvider,
-} = Conf;
+} = new DittoConf(Deno.env);
 
 const libretranslate = 'libretranslate';
 

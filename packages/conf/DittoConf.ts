@@ -329,6 +329,11 @@ export class DittoConf {
       .map(Number);
   }
 
+  /** Whether to perform prechecks when Ditto is starting. Setting this to `false` can suppress errors, but is not recommended. */
+  get precheck(): boolean {
+    return optionalBooleanSchema.parse(this.env.get('DITTO_PRECHECK')) ?? true;
+  }
+
   /**
    * Whether Ditto should subscribe to Nostr events from the Postgres database itself.
    * This would make Nostr events inserted directly into Postgres available to the streaming API and relay.
@@ -355,6 +360,11 @@ export class DittoConf {
   /** Absolute path to the data directory used by Ditto. */
   get dataDir(): string {
     return this.env.get('DITTO_DATA_DIR') || path.join(cwd(), 'data');
+  }
+
+  /** Directory to serve the frontend from. */
+  get publicDir(): string {
+    return this.env.get('DITTO_PUBLIC_DIR') || path.join(this.dataDir, 'public');
   }
 
   /** Absolute path of the Deno directory. */

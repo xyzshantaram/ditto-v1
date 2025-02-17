@@ -13,15 +13,14 @@ import { addTag, deleteTag } from '@/utils/tags.ts';
 import { asyncReplaceAll } from '@/utils/text.ts';
 import { lookupPubkey } from '@/utils/lookup.ts';
 import { languageSchema } from '@/schema.ts';
-import { Storages } from '@/storages.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { assertAuthenticated, createEvent, paginated, paginatedList, parseBody, updateListEvent } from '@/utils/api.ts';
 import { getInvoice, getLnurl } from '@/utils/lnurl.ts';
 import { purifyEvent } from '@/utils/purify.ts';
 import { getZapSplits } from '@/utils/zap-split.ts';
 import { renderEventAccounts } from '@/views.ts';
-import { accountFromPubkey, renderAccount } from '@/views/mastodon/accounts.ts';
-import { renderReblog, renderStatus } from '@/views/mastodon/statuses.ts';
+import { AccountView } from '@/views/mastodon/AccountView.ts';
+import { StatusView } from '@/views/mastodon/StatusView.ts';
 
 const createStatusSchema = z.object({
   in_reply_to_id: n.id().nullish(),
@@ -47,17 +46,15 @@ const createStatusSchema = z.object({
 
 const statusController: AppController = async (c) => {
   const id = c.req.param('id');
-  const signal = AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(1500)]);
-
-  const event = await getEvent(id, { signal });
+  const event = await getEvent(c.var, id);
 
   if (event?.author) {
     assertAuthenticated(c, event.author);
   }
 
   if (event) {
-    const viewerPubkey = await c.get('signer')?.getPublicKey();
-    const status = await renderStatus(event, { viewerPubkey });
+    const view = new StatusView(c.var);
+    const status = await view.render(event);
     return c.json(status);
   }
 
@@ -65,7 +62,7 @@ const statusController: AppController = async (c) => {
 };
 
 const createStatusController: AppController = async (c) => {
-  const { conf } = c.var;
+  const { conf, user } = c.var;
   const body = await parseBody(c.req.raw);
   const result = createStatusSchema.safeParse(body);
   const store = c.get('store');
@@ -190,8 +187,8 @@ const createStatusController: AppController = async (c) => {
     }
   }
 
-  const pubkey = await c.get('signer')?.getPublicKey()!;
-  const author = pubkey ? await getAuthor(pubkey) : undefined;
+  const pubkey = await user!.signer.getPublicKey();
+  const author = await getAuthor(c.var, pubkey);
 
   if (conf.zapSplitsEnabled) {
     const meta = n.json().pipe(n.metadata()).catch({}).parse(author?.content);
@@ -247,39 +244,38 @@ const createStatusController: AppController = async (c) => {
     content += mediaUrls.join('\n');
   }
 
-  const event = await createEvent({
+  const event = await createEvent(c.var, {
     kind: 1,
     content,
     tags,
-  }, c);
+  });
 
   if (data.quote_id) {
-    await hydrateEvents({
-      events: [event],
-      store: await Storages.db(),
-      signal: c.req.raw.signal,
-    });
+    await hydrateEvents(c.var, [event]);
   }
 
-  return c.json(await renderStatus({ ...event, author }, { viewerPubkey: author?.pubkey }));
+  const view = new StatusView(c.var);
+
+  return c.json(await view.render({ ...event, author }));
 };
 
 const deleteStatusController: AppController = async (c) => {
-  const { conf } = c.var;
+  const { conf, user } = c.var;
   const id = c.req.param('id');
-  const pubkey = await c.get('signer')?.getPublicKey();
+  const pubkey = await user!.signer.getPublicKey();
 
-  const event = await getEvent(id, { signal: c.req.raw.signal });
+  const event = await getEvent(c.var, id);
 
   if (event) {
     if (event.pubkey === pubkey) {
-      await createEvent({
+      await createEvent(c.var, {
         kind: 5,
         tags: [['e', id, conf.relay, '', pubkey]],
-      }, c);
+      });
 
-      const author = await getAuthor(event.pubkey);
-      return c.json(await renderStatus({ ...event, author }, { viewerPubkey: pubkey }));
+      const author = await getAuthor(c.var, event.pubkey);
+      const view = new StatusView(c.var);
+      return c.json(await view.render({ ...event, author }));
     } else {
       return c.json({ error: 'Unauthorized' }, 403);
     }
@@ -289,14 +285,16 @@ const deleteStatusController: AppController = async (c) => {
 };
 
 const contextController: AppController = async (c) => {
+  const { store } = c.var;
+
   const id = c.req.param('id');
-  const store = c.get('store');
   const [event] = await store.query([{ kinds: [1, 20], ids: [id] }]);
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
+
+  const view = new StatusView(c.var);
 
   async function renderStatuses(events: NostrEvent[]) {
     const statuses = await Promise.all(
-      events.map((event) => renderStatus(event, { viewerPubkey })),
+      events.map((event) => view.render(event)),
     );
     return statuses.filter(Boolean);
   }
@@ -307,11 +305,7 @@ const contextController: AppController = async (c) => {
       getDescendants(store, event),
     ]);
 
-    await hydrateEvents({
-      events: [...ancestorEvents, ...descendantEvents],
-      signal: c.req.raw.signal,
-      store,
-    });
+    await hydrateEvents(c.var, [...ancestorEvents, ...descendantEvents]);
 
     const [ancestors, descendants] = await Promise.all([
       renderStatuses(ancestorEvents),
@@ -325,24 +319,25 @@ const contextController: AppController = async (c) => {
 };
 
 const favouriteController: AppController = async (c) => {
-  const { conf } = c.var;
+  const { conf, store } = c.var;
   const id = c.req.param('id');
-  const store = await Storages.db();
-  const [target] = await store.query([{ ids: [id], kinds: [1, 20] }]);
+
+  const [target] = await store.query([{ ids: [id], kinds: [1, 20] }], c.var);
 
   if (target) {
-    await createEvent({
+    await createEvent(c.var, {
       kind: 7,
       content: '+',
       tags: [
         ['e', target.id, conf.relay, '', target.pubkey],
         ['p', target.pubkey, conf.relay],
       ],
-    }, c);
+    });
 
-    await hydrateEvents({ events: [target], store });
+    await hydrateEvents(c.var, [target]);
 
-    const status = await renderStatus(target, { viewerPubkey: await c.get('signer')?.getPublicKey() });
+    const view = new StatusView(c.var);
+    const status = await view.render(target);
 
     if (status) {
       status.favourited = true;
@@ -368,43 +363,38 @@ const favouritedByController: AppController = (c) => {
 const reblogStatusController: AppController = async (c) => {
   const { conf } = c.var;
   const eventId = c.req.param('id');
-  const { signal } = c.req.raw;
 
-  const event = await getEvent(eventId, {
-    kind: 1,
-  });
+  const event = await getEvent(c.var, eventId);
 
   if (!event) {
     return c.json({ error: 'Event not found.' }, 404);
   }
 
-  const reblogEvent = await createEvent({
+  const reblogEvent = await createEvent(c.var, {
     kind: 6,
     tags: [
       ['e', event.id, conf.relay, '', event.pubkey],
       ['p', event.pubkey, conf.relay],
     ],
-  }, c);
-
-  await hydrateEvents({
-    events: [reblogEvent],
-    store: await Storages.db(),
-    signal: signal,
   });
 
-  const status = await renderReblog(reblogEvent, { viewerPubkey: await c.get('signer')?.getPublicKey() });
+  await hydrateEvents(c.var, [reblogEvent]);
+
+  const view = new StatusView(c.var);
+  const status = await view.renderReblog(reblogEvent);
 
   return c.json(status);
 };
 
 /** https://docs.joinmastodon.org/methods/statuses/#unreblog */
 const unreblogStatusController: AppController = async (c) => {
-  const { conf } = c.var;
+  const { conf, store, user } = c.var;
+
   const eventId = c.req.param('id');
-  const pubkey = await c.get('signer')?.getPublicKey()!;
-  const store = await Storages.db();
+  const pubkey = await user!.signer.getPublicKey();
 
   const [event] = await store.query([{ ids: [eventId], kinds: [1, 20] }]);
+
   if (!event) {
     return c.json({ error: 'Record not found' }, 404);
   }
@@ -417,38 +407,41 @@ const unreblogStatusController: AppController = async (c) => {
     return c.json({ error: 'Record not found' }, 404);
   }
 
-  await createEvent({
+  await createEvent(c.var, {
     kind: 5,
     tags: [['e', repostEvent.id, conf.relay, '', repostEvent.pubkey]],
-  }, c);
+  });
 
-  return c.json(await renderStatus(event, { viewerPubkey: pubkey }));
+  const view = new StatusView(c.var);
+  const status = await view.render(event);
+
+  return c.json(status);
 };
 
 const rebloggedByController: AppController = (c) => {
   const id = c.req.param('id');
-  const params = c.get('pagination');
-  return renderEventAccounts(c, [{ kinds: [6], '#e': [id], ...params }]);
+  const { pagination } = c.var;
+  return renderEventAccounts(c, [{ kinds: [6], '#e': [id], ...pagination }]);
 };
 
 const quotesController: AppController = async (c) => {
   const id = c.req.param('id');
-  const params = c.get('pagination');
-  const store = await Storages.db();
+  const { store, pagination } = c.var;
 
   const [event] = await store.query([{ ids: [id], kinds: [1, 20] }]);
+
   if (!event) {
     return c.json({ error: 'Event not found.' }, 404);
   }
 
   const quotes = await store
-    .query([{ kinds: [1, 20], '#q': [event.id], ...params }])
-    .then((events) => hydrateEvents({ events, store }));
+    .query([{ kinds: [1, 20], '#q': [event.id], ...pagination }])
+    .then((events) => hydrateEvents(c.var, events));
 
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
+  const view = new StatusView(c.var);
 
   const statuses = await Promise.all(
-    quotes.map((event) => renderStatus(event, { viewerPubkey })),
+    quotes.map((event) => view.render(event)),
   );
 
   if (!statuses.length) {
@@ -460,23 +453,22 @@ const quotesController: AppController = async (c) => {
 
 /** https://docs.joinmastodon.org/methods/statuses/#bookmark */
 const bookmarkController: AppController = async (c) => {
-  const { conf } = c.var;
-  const pubkey = await c.get('signer')?.getPublicKey()!;
+  const { conf, user } = c.var;
+  const pubkey = await user!.signer.getPublicKey();
   const eventId = c.req.param('id');
 
-  const event = await getEvent(eventId, {
-    kind: 1,
-    relations: ['author', 'event_stats', 'author_stats'],
-  });
+  const event = await getEvent(c.var, eventId);
 
   if (event) {
     await updateListEvent(
+      c.var,
       { kinds: [10003], authors: [pubkey], limit: 1 },
       (tags) => addTag(tags, ['e', event.id, conf.relay, '', event.pubkey]),
-      c,
     );
 
-    const status = await renderStatus(event, { viewerPubkey: pubkey });
+    const view = new StatusView(c.var);
+    const status = await view.render(event);
+
     if (status) {
       status.bookmarked = true;
     }
@@ -488,23 +480,22 @@ const bookmarkController: AppController = async (c) => {
 
 /** https://docs.joinmastodon.org/methods/statuses/#unbookmark */
 const unbookmarkController: AppController = async (c) => {
-  const { conf } = c.var;
-  const pubkey = await c.get('signer')?.getPublicKey()!;
+  const { conf, user } = c.var;
+  const pubkey = await user!.signer.getPublicKey();
   const eventId = c.req.param('id');
 
-  const event = await getEvent(eventId, {
-    kind: 1,
-    relations: ['author', 'event_stats', 'author_stats'],
-  });
+  const event = await getEvent(c.var, eventId);
 
   if (event) {
     await updateListEvent(
+      c.var,
       { kinds: [10003], authors: [pubkey], limit: 1 },
       (tags) => deleteTag(tags, ['e', event.id, conf.relay, '', event.pubkey]),
-      c,
     );
 
-    const status = await renderStatus(event, { viewerPubkey: pubkey });
+    const view = new StatusView(c.var);
+    const status = await view.render(event);
+
     if (status) {
       status.bookmarked = false;
     }
@@ -516,23 +507,22 @@ const unbookmarkController: AppController = async (c) => {
 
 /** https://docs.joinmastodon.org/methods/statuses/#pin */
 const pinController: AppController = async (c) => {
-  const { conf } = c.var;
-  const pubkey = await c.get('signer')?.getPublicKey()!;
+  const { conf, user } = c.var;
+  const pubkey = await user!.signer.getPublicKey();
   const eventId = c.req.param('id');
 
-  const event = await getEvent(eventId, {
-    kind: 1,
-    relations: ['author', 'event_stats', 'author_stats'],
-  });
+  const event = await getEvent(c.var, eventId);
 
   if (event) {
     await updateListEvent(
+      c.var,
       { kinds: [10001], authors: [pubkey], limit: 1 },
       (tags) => addTag(tags, ['e', event.id, conf.relay, '', event.pubkey]),
-      c,
     );
 
-    const status = await renderStatus(event, { viewerPubkey: pubkey });
+    const view = new StatusView(c.var);
+    const status = await view.render(event);
+
     if (status) {
       status.pinned = true;
     }
@@ -544,25 +534,22 @@ const pinController: AppController = async (c) => {
 
 /** https://docs.joinmastodon.org/methods/statuses/#unpin */
 const unpinController: AppController = async (c) => {
-  const { conf } = c.var;
-  const pubkey = await c.get('signer')?.getPublicKey()!;
+  const { conf, user } = c.var;
+  const pubkey = await user!.signer.getPublicKey();
   const eventId = c.req.param('id');
-  const { signal } = c.req.raw;
 
-  const event = await getEvent(eventId, {
-    kind: 1,
-    relations: ['author', 'event_stats', 'author_stats'],
-    signal,
-  });
+  const event = await getEvent(c.var, eventId);
 
   if (event) {
     await updateListEvent(
+      c.var,
       { kinds: [10001], authors: [pubkey], limit: 1 },
       (tags) => deleteTag(tags, ['e', event.id, conf.relay, '', event.pubkey]),
-      c,
     );
 
-    const status = await renderStatus(event, { viewerPubkey: pubkey });
+    const view = new StatusView(c.var);
+    const status = await view.render(event);
+
     if (status) {
       status.pinned = false;
     }
@@ -597,7 +584,7 @@ const zapController: AppController = async (c) => {
   let lnurl: undefined | string;
 
   if (status_id) {
-    target = await getEvent(status_id, { kind: 1, relations: ['author'], signal });
+    target = await getEvent(c.var, status_id);
     const author = target?.author;
     const meta = n.json().pipe(n.metadata()).catch({}).parse(author?.content);
     lnurl = getLnurl(meta);
@@ -625,11 +612,11 @@ const zapController: AppController = async (c) => {
   }
 
   if (target && lnurl) {
-    const nostr = await createEvent({
+    const nostr = await createEvent(c.var, {
       kind: 9734,
       content: comment ?? '',
       tags,
-    }, c);
+    });
 
     return c.json({ invoice: await getInvoice({ amount, nostr: purifyEvent(nostr), lnurl }, signal) });
   } else {
@@ -640,8 +627,8 @@ const zapController: AppController = async (c) => {
 const zappedByController: AppController = async (c) => {
   const id = c.req.param('id');
   const params = c.get('listPagination');
-  const store = await Storages.db();
-  const kysely = await Storages.kysely();
+
+  const { kysely, store } = c.var;
 
   const zaps = await kysely.selectFrom('event_zaps')
     .selectAll()
@@ -651,22 +638,21 @@ const zappedByController: AppController = async (c) => {
     .offset(params.offset).execute();
 
   const authors = await store.query([{ kinds: [0], authors: zaps.map((zap) => zap.sender_pubkey) }]);
+  const view = new AccountView(c.var);
 
-  const results = (await Promise.all(
-    zaps.map(async (zap) => {
-      const amount = zap.amount_millisats;
-      const comment = zap.comment;
+  const results = zaps.map((zap) => {
+    const amount = zap.amount_millisats;
+    const comment = zap.comment;
 
-      const sender = authors.find((author) => author.pubkey === zap.sender_pubkey);
-      const account = sender ? await renderAccount(sender) : await accountFromPubkey(zap.sender_pubkey);
+    const sender = authors.find((author) => author.pubkey === zap.sender_pubkey);
+    const account = view.render(sender, zap.sender_pubkey);
 
-      return {
-        comment,
-        amount,
-        account,
-      };
-    }),
-  )).filter(Boolean);
+    return {
+      comment,
+      amount,
+      account,
+    };
+  }).filter(Boolean);
 
   return paginatedList(c, params, results);
 };

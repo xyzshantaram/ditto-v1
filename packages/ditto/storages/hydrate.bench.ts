@@ -1,5 +1,9 @@
+import { DittoConf } from '@ditto/conf';
+
 import { assembleEvents } from '@/storages/hydrate.ts';
 import { jsonlEvents } from '@/test.ts';
+
+const conf = new DittoConf(new Map());
 
 const testEvents = await jsonlEvents('fixtures/hydrated.jsonl');
 const testStats = JSON.parse(await Deno.readTextFile('fixtures/stats.json'));
@@ -9,5 +13,5 @@ const testStats = JSON.parse(await Deno.readTextFile('fixtures/stats.json'));
 const events = testEvents.slice(0, 20);
 
 Deno.bench('assembleEvents with home feed', () => {
-  assembleEvents(events, testEvents, testStats);
+  assembleEvents(conf, events, testEvents, testStats);
 });

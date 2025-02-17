@@ -5,24 +5,38 @@ import { safeFetch } from '@soapbox/safe-fetch';
 import { nip19 } from 'nostr-tools';
 import tldts from 'tldts';
 
-import { Conf } from '@/config.ts';
-import { Storages } from '@/storages.ts';
 import { errorJson } from '@/utils/log.ts';
 import { SimpleLRU } from '@/utils/SimpleLRU.ts';
+import { DittoConf } from '../../conf/mod.ts';
 
-export const nip05Cache = new SimpleLRU<string, nip19.ProfilePointer>(
-  async (nip05, { signal }) => {
-    const store = await Storages.db();
-    return getNip05(store, nip05, signal);
-  },
-  { ...Conf.caches.nip05, gauge: cachedNip05sSizeGauge },
-);
+let nip05Cache: SimpleLRU<string, nip19.ProfilePointer> | undefined;
+
+interface ResolveNip05Opts {
+  conf: DittoConf;
+  store: NStore;
+  signal?: AbortSignal;
+}
+
+export function resolveNip05(opts: ResolveNip05Opts, nip05: string): Promise<nip19.ProfilePointer> {
+  const { conf } = opts;
+
+  if (!nip05Cache) {
+    nip05Cache = new SimpleLRU<string, nip19.ProfilePointer>(
+      async (nip05, { signal }) => {
+        return await getNip05({ ...opts, signal }, nip05);
+      },
+      { ...conf.caches.nip05, gauge: cachedNip05sSizeGauge },
+    );
+  }
+
+  return nip05Cache.fetch(nip05, opts);
+}
 
 async function getNip05(
-  store: NStore,
+  opts: ResolveNip05Opts,
   nip05: string,
-  signal?: AbortSignal,
 ): Promise<nip19.ProfilePointer> {
+  const { conf, signal } = opts;
   const tld = tldts.parse(nip05);
 
   if (!tld.isIcann || tld.isIp || tld.isPrivate) {
@@ -34,8 +48,8 @@ async function getNip05(
   const [name, domain] = nip05.split('@');
 
   try {
-    if (domain === Conf.url.host) {
-      const pointer = await localNip05Lookup(store, name);
+    if (domain === conf.url.host) {
+      const pointer = await localNip05Lookup(opts, name);
       if (pointer) {
         logi({ level: 'info', ns: 'ditto.nip05', nip05, state: 'found', source: 'local', pubkey: pointer.pubkey });
         return pointer;
@@ -53,17 +67,22 @@ async function getNip05(
   }
 }
 
-export async function localNip05Lookup(store: NStore, localpart: string): Promise<nip19.ProfilePointer | undefined> {
+export async function localNip05Lookup(
+  opts: ResolveNip05Opts,
+  localpart: string,
+): Promise<nip19.ProfilePointer | undefined> {
+  const { conf, store } = opts;
+
   const [grant] = await store.query([{
     kinds: [30360],
-    '#d': [`${localpart}@${Conf.url.host}`],
-    authors: [Conf.pubkey],
+    '#d': [`${localpart}@${conf.url.host}`],
+    authors: [conf.pubkey],
     limit: 1,
   }]);
 
   const pubkey = grant?.tags.find(([name]) => name === 'p')?.[1];
 
   if (pubkey) {
-    return { pubkey, relays: [Conf.relay] };
+    return { pubkey, relays: [conf.relay] };
   }
 }

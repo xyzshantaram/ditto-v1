@@ -1,6 +1,6 @@
+import { DittoConf } from '@ditto/conf';
 import DOMPurify from 'isomorphic-dompurify';
 
-import { Conf } from '@/config.ts';
 import { html } from '@/utils/html.ts';
 import { MetadataEntities } from '@/utils/og-metadata.ts';
 
@@ -9,13 +9,13 @@ import { MetadataEntities } from '@/utils/og-metadata.ts';
  * @param opts the metadata to use to fill the template.
  * @returns the built OpenGraph metadata.
  */
-export function renderMetadata(url: string, { account, status, instance }: MetadataEntities): string {
+export function renderMetadata(conf: DittoConf, req: Request, { account, status, instance }: MetadataEntities): string {
   const tags: string[] = [];
 
   const title = account ? `${account.display_name} (@${account.acct})` : instance.name;
   const attachment = status?.media_attachments?.find((a) => a.type === 'image');
   const description = DOMPurify.sanitize(status?.content || account?.note || instance.tagline, { ALLOWED_TAGS: [] });
-  const image = attachment?.preview_url || account?.avatar_static || instance.picture || Conf.local('/favicon.ico');
+  const image = attachment?.preview_url || account?.avatar_static || instance.picture || conf.local('/favicon.ico');
   const siteName = instance?.name;
   const width = attachment?.meta?.original?.width;
   const height = attachment?.meta?.original?.height;
@@ -48,7 +48,7 @@ export function renderMetadata(url: string, { account, status, instance }: Metad
 
   // Extra tags (always present if other tags exist).
   if (tags.length > 0) {
-    tags.push(html`<meta property="og:url" content="${url}">`);
+    tags.push(html`<meta property="og:url" content="${conf.local(req.url)}">`);
     tags.push('<meta property="og:type" content="website">');
     tags.push('<meta name="twitter:card" content="summary">');
   }

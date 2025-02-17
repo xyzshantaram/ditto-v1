@@ -1,7 +1,11 @@
+import { DittoConf } from '@ditto/conf';
 import { NostrFilter } from '@nostrify/nostrify';
 import { Command, InvalidOptionArgumentError } from 'commander';
 
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
+
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
 
 interface ExportFilter {
   authors?: string[];
@@ -98,7 +102,7 @@ export function buildFilter(args: ExportFilter) {
 }
 
 async function exportEvents(args: ExportFilter) {
-  const store = await Storages.db();
+  const store = await storages.db();
 
   let filter: NostrFilter = {};
   try {

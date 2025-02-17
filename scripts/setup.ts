@@ -1,10 +1,11 @@
+import { DittoConf } from '@ditto/conf';
 import { generateVapidKeys } from '@negrel/webpush';
 import { encodeBase64 } from '@std/encoding/base64';
 import { exists } from '@std/fs/exists';
 import { generateSecretKey, nip19 } from 'nostr-tools';
 import question from 'question-deno';
 
-import { Conf } from '../packages/ditto/config.ts';
+const conf = new DittoConf(Deno.env);
 
 console.log('');
 console.log('Hello! Welcome to the Ditto setup tool. We will ask you a few questions to generate a .env file for you.');
@@ -39,7 +40,7 @@ if (DITTO_NSEC) {
   console.log('  Generated secret key\n');
 }
 
-const domain = await question('input', 'What is the domain of your instance? (eg ditto.pub)', Conf.url.host);
+const domain = await question('input', 'What is the domain of your instance? (eg ditto.pub)', conf.url.host);
 vars.LOCAL_DOMAIN = `https://${domain}`;
 
 const DATABASE_URL = Deno.env.get('DATABASE_URL');
@@ -71,28 +72,28 @@ vars.DITTO_UPLOADER = await question('list', 'How do you want to upload files?',
 ]);
 
 if (vars.DITTO_UPLOADER === 'nostrbuild') {
-  vars.NOSTRBUILD_ENDPOINT = await question('input', 'nostr.build endpoint', Conf.nostrbuildEndpoint);
+  vars.NOSTRBUILD_ENDPOINT = await question('input', 'nostr.build endpoint', conf.nostrbuildEndpoint);
 }
 if (vars.DITTO_UPLOADER === 'blossom') {
-  vars.BLOSSOM_SERVERS = await question('input', 'Blossom servers (comma separated)', Conf.blossomServers.join(','));
+  vars.BLOSSOM_SERVERS = await question('input', 'Blossom servers (comma separated)', conf.blossomServers.join(','));
 }
 if (vars.DITTO_UPLOADER === 's3') {
-  vars.S3_ACCESS_KEY = await question('input', 'S3 access key', Conf.s3.accessKey);
-  vars.S3_SECRET_KEY = await question('input', 'S3 secret key', Conf.s3.secretKey);
-  vars.S3_ENDPOINT = await question('input', 'S3 endpoint', Conf.s3.endPoint);
-  vars.S3_BUCKET = await question('input', 'S3 bucket', Conf.s3.bucket);
-  vars.S3_REGION = await question('input', 'S3 region', Conf.s3.region);
-  vars.S3_PATH_STYLE = String(await question('confirm', 'Use path style?', Conf.s3.pathStyle ?? false));
+  vars.S3_ACCESS_KEY = await question('input', 'S3 access key', conf.s3.accessKey);
+  vars.S3_SECRET_KEY = await question('input', 'S3 secret key', conf.s3.secretKey);
+  vars.S3_ENDPOINT = await question('input', 'S3 endpoint', conf.s3.endPoint);
+  vars.S3_BUCKET = await question('input', 'S3 bucket', conf.s3.bucket);
+  vars.S3_REGION = await question('input', 'S3 region', conf.s3.region);
+  vars.S3_PATH_STYLE = String(await question('confirm', 'Use path style?', conf.s3.pathStyle ?? false));
   const mediaDomain = await question('input', 'Media domain', `media.${domain}`);
   vars.MEDIA_DOMAIN = `https://${mediaDomain}`;
 }
 if (vars.DITTO_UPLOADER === 'ipfs') {
-  vars.IPFS_API_URL = await question('input', 'IPFS API URL', Conf.ipfs.apiUrl);
+  vars.IPFS_API_URL = await question('input', 'IPFS API URL', conf.ipfs.apiUrl);
   const mediaDomain = await question('input', 'Media domain', `media.${domain}`);
   vars.MEDIA_DOMAIN = `https://${mediaDomain}`;
 }
 if (vars.DITTO_UPLOADER === 'local') {
-  vars.UPLOADS_DIR = await question('input', 'Local uploads directory', Conf.uploadsDir);
+  vars.UPLOADS_DIR = await question('input', 'Local uploads directory', conf.uploadsDir);
   const mediaDomain = await question('input', 'Media domain', `media.${domain}`);
   vars.MEDIA_DOMAIN = `https://${mediaDomain}`;
 }

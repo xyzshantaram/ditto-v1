@@ -1,7 +1,12 @@
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoConf } from '@ditto/conf';
+
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
+
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
 
 // This migrates kysely internally.
-const kysely = await Storages.kysely();
+const kysely = await storages.kysely();
 
 // Close the connection before exiting.
 await kysely.destroy();

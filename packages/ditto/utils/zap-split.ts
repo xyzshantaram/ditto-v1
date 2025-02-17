@@ -1,5 +1,6 @@
+import { DittoConf } from '@ditto/conf';
+
 import { AdminSigner } from '@/signers/AdminSigner.ts';
-import { Conf } from '@/config.ts';
 import { NSchema as n, NStore } from '@nostrify/nostrify';
 import { nostrNow } from '@/utils.ts';
 import { percentageSchema } from '@/schema.ts';
@@ -37,14 +38,14 @@ export async function getZapSplits(store: NStore, pubkey: string): Promise<Ditto
   return zapSplits;
 }
 
-export async function seedZapSplits(store: NStore) {
-  const zapSplit: DittoZapSplits | undefined = await getZapSplits(store, Conf.pubkey);
+export async function seedZapSplits(conf: DittoConf, store: NStore) {
+  const zapSplit: DittoZapSplits | undefined = await getZapSplits(store, conf.pubkey);
 
   if (!zapSplit) {
     const dittoPubkey = '781a1527055f74c1f70230f10384609b34548f8ab6a0a6caa74025827f9fdae5';
     const dittoMsg = 'Official Ditto Account';
 
-    const signer = new AdminSigner();
+    const signer = new AdminSigner(conf);
     const event = await signer.signEvent({
       content: '',
       created_at: nostrNow(),

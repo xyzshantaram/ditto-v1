@@ -10,20 +10,21 @@ import {
   NostrClientMsg,
   NostrClientREQ,
   NostrRelayMsg,
+  NRelay,
   NSchema as n,
 } from '@nostrify/nostrify';
 
 import { AppController } from '@/app.ts';
 import { relayInfoController } from '@/controllers/nostr/relay-info.ts';
-import * as pipeline from '@/pipeline.ts';
 import { RelayError } from '@/RelayError.ts';
-import { Storages } from '@/storages.ts';
 import { errorJson } from '@/utils/log.ts';
 import { purifyEvent } from '@/utils/purify.ts';
 import { MemoryRateLimiter } from '@/utils/ratelimiter/MemoryRateLimiter.ts';
 import { MultiRateLimiter } from '@/utils/ratelimiter/MultiRateLimiter.ts';
 import { RateLimiter } from '@/utils/ratelimiter/types.ts';
 import { Time } from '@/utils/time.ts';
+import { DittoPipeline } from '@/DittoPipeline.ts';
+import { EventsDB } from '@/storages/EventsDB.ts';
 
 /** Limit of initial events returned for a subscription. */
 const FILTER_LIMIT = 100;
@@ -46,8 +47,17 @@ const limiters = {
 /** Connections for metrics purposes. */
 const connections = new Set<WebSocket>();
 
+interface ConnectStreamOpts {
+  conf: DittoConf;
+  store: EventsDB;
+  pubsub: NRelay;
+  pipeline: DittoPipeline;
+}
+
 /** Set up the Websocket connection. */
-function connectStream(socket: WebSocket, ip: string | undefined, conf: DittoConf) {
+function connectStream(opts: ConnectStreamOpts, socket: WebSocket, ip: string | undefined) {
+  const { conf, store, pubsub, pipeline } = opts;
+
   const controllers = new Map<string, AbortController>();
 
   socket.onopen = () => {
@@ -127,9 +137,6 @@ function connectStream(socket: WebSocket, ip: string | undefined, conf: DittoCon
     controllers.get(subId)?.abort();
     controllers.set(subId, controller);
 
-    const store = await Storages.db();
-    const pubsub = await Storages.pubsub();
-
     try {
       for (const event of await store.query(filters, { limit: FILTER_LIMIT, timeout: conf.db.timeouts.relay })) {
         send(['EVENT', subId, purifyEvent(event)]);
@@ -168,7 +175,7 @@ function connectStream(socket: WebSocket, ip: string | undefined, conf: DittoCon
 
     try {
       // This will store it (if eligible) and run other side-effects.
-      await pipeline.handleEvent(purifyEvent(event), { source: 'relay', signal: AbortSignal.timeout(1000) });
+      await pipeline.event(purifyEvent(event), { source: 'relay', signal: AbortSignal.timeout(1000) });
       send(['OK', event.id, true, '']);
     } catch (e) {
       if (e instanceof RelayError) {
@@ -192,7 +199,6 @@ function connectStream(socket: WebSocket, ip: string | undefined, conf: DittoCon
   /** Handle COUNT. Return the number of events matching the filters. */
   async function handleCount([_, subId, ...filters]: NostrClientCOUNT): Promise<void> {
     if (rateLimited(limiters.req)) return;
-    const store = await Storages.db();
     const { count } = await store.count(filters, { timeout: conf.db.timeouts.relay });
     send(['COUNT', subId, { count, approximate: false }]);
   }
@@ -235,7 +241,7 @@ const relayController: AppController = (c, next) => {
   }
 
   const { socket, response } = Deno.upgradeWebSocket(c.req.raw, { idleTimeout: 30 });
-  connectStream(socket, ip, conf);
+  connectStream(c.var, socket, ip);
 
   return response;
 };

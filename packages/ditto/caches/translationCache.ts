@@ -1,7 +1,7 @@
 import { LanguageCode } from 'iso-639-1';
 import { LRUCache } from 'lru-cache';
 
-import { Conf } from '@/config.ts';
+import { DittoConf } from '@ditto/conf';
 import { MastodonTranslation } from '@/entities/MastodonTranslation.ts';
 
 /** Translations LRU cache. */

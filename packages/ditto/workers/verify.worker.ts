@@ -1,9 +1,14 @@
+import { DittoConf } from '@ditto/conf';
 import { NostrEvent } from '@nostrify/nostrify';
 import * as Comlink from 'comlink';
 import { VerifiedEvent, verifyEvent } from 'nostr-tools';
 
 import '@/nostr-wasm.ts';
-import '@/sentry.ts';
+import { startSentry } from '@/sentry.ts';
+
+const conf = new DittoConf(Deno.env);
+
+startSentry(conf);
 
 export const VerifyWorker = {
   verifyEvent(event: NostrEvent): event is VerifiedEvent {

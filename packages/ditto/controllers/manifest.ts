@@ -1,10 +1,9 @@
 import { AppController } from '@/app.ts';
-import { Storages } from '@/storages.ts';
 import { WebManifestCombined } from '@/types/webmanifest.ts';
 import { getInstanceMetadata } from '@/utils/instance.ts';
 
 export const manifestController: AppController = async (c) => {
-  const meta = await getInstanceMetadata(await Storages.db(), c.req.raw.signal);
+  const meta = await getInstanceMetadata(c.var);
 
   const manifest: WebManifestCombined = {
     description: meta.about,

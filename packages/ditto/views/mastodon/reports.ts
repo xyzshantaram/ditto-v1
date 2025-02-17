@@ -1,3 +1,4 @@
+import { AppContext } from '@/app.ts';
 import { type DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { accountFromPubkey, renderAccount } from '@/views/mastodon/accounts.ts';
 import { nostrDate } from '@/utils.ts';
@@ -36,7 +37,7 @@ interface RenderAdminReportOpts {
 /** Admin-level information about a filed report.
  * Expects an event of kind 1984 fully hydrated.
  * https://docs.joinmastodon.org/entities/Admin_Report */
-async function renderAdminReport(event: DittoEvent, opts: RenderAdminReportOpts) {
+async function renderAdminReport(c: AppContext, event: DittoEvent, opts: RenderAdminReportOpts) {
   const { viewerPubkey } = opts;
 
   // The category is present in both the 'e' and 'p' tag, however, it is possible to report a user without reporting a note, so it's better to get the category from the 'p' tag
@@ -45,7 +46,7 @@ async function renderAdminReport(event: DittoEvent, opts: RenderAdminReportOpts)
   const statuses = [];
   if (event.reported_notes) {
     for (const status of event.reported_notes) {
-      statuses.push(await renderStatus(status, { viewerPubkey }));
+      statuses.push(await renderStatus(c, status, { viewerPubkey }));
     }
   }
 

@@ -4,8 +4,8 @@ import { NostrSigner } from '@nostrify/nostrify';
 import { SetRequired } from 'type-fest';
 
 /** Throw a 401 if a signer isn't set. */
-export const requireSigner: MiddlewareHandler<{ Variables: { signer: NostrSigner } }> = async (c, next) => {
-  if (!c.get('signer')) {
+export const requireSigner: MiddlewareHandler<{ Variables: { user: { signer: NostrSigner } } }> = async (c, next) => {
+  if (!c.var.user) {
     throw new HTTPException(401, { message: 'No pubkey provided' });
   }
 
@@ -13,17 +13,18 @@ export const requireSigner: MiddlewareHandler<{ Variables: { signer: NostrSigner
 };
 
 /** Throw a 401 if a NIP-44 signer isn't set. */
-export const requireNip44Signer: MiddlewareHandler<{ Variables: { signer: SetRequired<NostrSigner, 'nip44'> } }> =
-  async (c, next) => {
-    const signer = c.get('signer');
+export const requireNip44Signer: MiddlewareHandler<
+  { Variables: { user: { signer: SetRequired<NostrSigner, 'nip44'> } } }
+> = async (c, next) => {
+  const { user } = c.var;
 
-    if (!signer) {
-      throw new HTTPException(401, { message: 'No pubkey provided' });
-    }
+  if (!user) {
+    throw new HTTPException(401, { message: 'No pubkey provided' });
+  }
 
-    if (!signer.nip44) {
-      throw new HTTPException(401, { message: 'No NIP-44 signer provided' });
-    }
+  if (!user.signer.nip44) {
+    throw new HTTPException(401, { message: 'No NIP-44 signer provided' });
+  }
 
-    await next();
-  };
+  await next();
+};

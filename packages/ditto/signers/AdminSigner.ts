@@ -1,9 +1,10 @@
 import { NSecSigner } from '@nostrify/nostrify';
-import { Conf } from '@/config.ts';
+
+import type { DittoConf } from '@ditto/conf';
 
 /** Sign events as the Ditto server. */
 export class AdminSigner extends NSecSigner {
-  constructor() {
-    super(Conf.seckey);
+  constructor(conf: DittoConf) {
+    super(conf.seckey);
   }
 }

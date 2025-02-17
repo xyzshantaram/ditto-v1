@@ -1,9 +1,12 @@
+import { DittoConf } from '@ditto/conf';
 import { NSchema as n } from '@nostrify/nostrify';
 
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 
-const store = await Storages.db();
-const kysely = await Storages.kysely();
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
+const store = await storages.db();
+const kysely = await storages.kysely();
 
 for await (const msg of store.req([{ kinds: [0] }])) {
   if (msg[0] === 'EVENT') {

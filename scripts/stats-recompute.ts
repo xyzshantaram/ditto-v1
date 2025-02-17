@@ -1,7 +1,11 @@
+import { DittoConf } from '@ditto/conf';
 import { nip19 } from 'nostr-tools';
 
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 import { refreshAuthorStats } from '../packages/ditto/utils/stats.ts';
+
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
 
 let pubkey: string;
 try {
@@ -16,7 +20,7 @@ try {
   Deno.exit(1);
 }
 
-const store = await Storages.db();
-const kysely = await Storages.kysely();
+const store = await storages.db();
+const kysely = await storages.kysely();
 
 await refreshAuthorStats({ pubkey, kysely, store });

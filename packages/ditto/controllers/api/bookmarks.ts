@@ -1,13 +1,12 @@
 import { type AppController } from '@/app.ts';
-import { Storages } from '@/storages.ts';
 import { getTagSet } from '@/utils/tags.ts';
 import { renderStatuses } from '@/views.ts';
 
 /** https://docs.joinmastodon.org/methods/bookmarks/#get */
 const bookmarksController: AppController = async (c) => {
-  const store = await Storages.db();
-  const pubkey = await c.get('signer')?.getPublicKey()!;
-  const { signal } = c.req.raw;
+  const { store, user, signal } = c.var;
+
+  const pubkey = await user!.signer.getPublicKey();
 
   const [event10003] = await store.query(
     [{ kinds: [10003], authors: [pubkey], limit: 1 }],

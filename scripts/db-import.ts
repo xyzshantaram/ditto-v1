@@ -1,13 +1,15 @@
 import { Semaphore } from '@core/asyncutil';
+import { DittoConf } from '@ditto/conf';
 import { NostrEvent } from '@nostrify/nostrify';
 import { JsonParseStream } from '@std/json/json-parse-stream';
 import { TextLineStream } from '@std/streams/text-line-stream';
 
-import { Conf } from '../packages/ditto/config.ts';
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 
-const store = await Storages.db();
-const sem = new Semaphore(Conf.pg.poolSize);
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
+const store = await storages.db();
+const sem = new Semaphore(conf.pg.poolSize);
 
 console.warn('Importing events...');
 

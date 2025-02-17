@@ -4,26 +4,39 @@ import { logi } from '@soapbox/logi';
 import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
-import { Conf } from '@/config.ts';
+import { PreviewCard } from '@/entities/PreviewCard.ts';
 import { paginationSchema } from '@/schemas/pagination.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { Storages } from '@/storages.ts';
 import { generateDateRange, Time } from '@/utils/time.ts';
 import { unfurlCardCached } from '@/utils/unfurl.ts';
 import { paginated } from '@/utils/api.ts';
 import { errorJson } from '@/utils/log.ts';
-import { renderStatus } from '@/views/mastodon/statuses.ts';
+import { StatusView } from '@/views/mastodon/StatusView.ts';
 
-let trendingHashtagsCache = getTrendingHashtags(Conf).catch((e: unknown) => {
-  logi({
-    level: 'error',
-    ns: 'ditto.trends.api',
-    type: 'tags',
-    msg: 'Failed to get trending hashtags',
-    error: errorJson(e),
+interface MastodonTrendingHashtag {
+  name: string;
+  url: string;
+  history: {
+    day: string;
+    accounts: string;
+    uses: string;
+  }[];
+}
+
+let trendingHashtagsCache: Promise<MastodonTrendingHashtag[]> | undefined;
+
+function updateTrendingHashtagsCache(conf: DittoConf, store: NStore) {
+  trendingHashtagsCache = getTrendingHashtags(conf, store).catch((e: unknown) => {
+    logi({
+      level: 'error',
+      ns: 'ditto.trends.api',
+      type: 'tags',
+      msg: 'Failed to get trending hashtags',
+      error: errorJson(e),
+    });
+    return Promise.resolve([]);
   });
-  return Promise.resolve([]);
-});
+}
 
 Deno.cron('update trending hashtags cache', '35 * * * *', async () => {
   try {
@@ -51,8 +64,7 @@ const trendingTagsController: AppController = async (c) => {
   return c.json(trends.slice(offset, offset + limit));
 };
 
-async function getTrendingHashtags(conf: DittoConf) {
-  const store = await Storages.db();
+async function getTrendingHashtags(conf: DittoConf, store: NStore): Promise<MastodonTrendingHashtag[]> {
   const trends = await getTrendingTags(store, 't', conf.pubkey);
 
   return trends.map((trend) => {
@@ -104,13 +116,20 @@ const trendingLinksController: AppController = async (c) => {
   return c.json(trends.slice(offset, offset + limit));
 };
 
-async function getTrendingLinks(conf: DittoConf) {
-  const store = await Storages.db();
+interface MastodonTrendingLink extends PreviewCard {
+  history: {
+    day: string;
+    accounts: string;
+    uses: string;
+  }[];
+}
+
+async function getTrendingLinks(conf: DittoConf, store: NStore): Promise<MastodonTrendingLink[]> {
   const trends = await getTrendingTags(store, 'r', conf.pubkey);
 
   return Promise.all(trends.map(async (trend) => {
     const link = trend.value;
-    const card = await unfurlCardCached(link);
+    const card = await unfurlCardCached(conf, link);
 
     const history = trend.history.map(({ day, authors, uses }) => ({
       day: String(day),
@@ -140,8 +159,7 @@ async function getTrendingLinks(conf: DittoConf) {
 }
 
 const trendingStatusesController: AppController = async (c) => {
-  const { conf } = c.var;
-  const store = await Storages.db();
+  const { conf, store } = c.var;
   const { limit, offset, until } = paginationSchema.parse(c.req.query());
 
   const [label] = await store.query([{
@@ -163,15 +181,17 @@ const trendingStatusesController: AppController = async (c) => {
   }
 
   const results = await store.query([{ kinds: [1, 20], ids }])
-    .then((events) => hydrateEvents({ events, store }));
+    .then((events) => hydrateEvents(c.var, events));
 
   // Sort events in the order they appear in the label.
   const events = ids
     .map((id) => results.find((event) => event.id === id))
     .filter((event): event is NostrEvent => !!event);
 
+  const view = new StatusView(c.var);
+
   const statuses = await Promise.all(
-    events.map((event) => renderStatus(event, {})),
+    events.map((event) => view.render(event)),
   );
 
   return paginated(c, results, statuses);

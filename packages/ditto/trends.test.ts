@@ -1,11 +1,16 @@
+import { DittoConf } from '@ditto/conf';
 import { assertEquals } from '@std/assert';
 import { generateSecretKey, NostrEvent } from 'nostr-tools';
 
-import { getTrendingTagValues } from '@/trends.ts';
+import { DittoTrends } from '@/trends.ts';
 import { createTestDB, genEvent } from '@/test.ts';
 
-Deno.test("getTrendingTagValues(): 'e' tag and WITHOUT language parameter", async () => {
+const conf = new DittoConf(new Map());
+
+Deno.test("Trends.getTrendingTagValues(): 'e' tag and WITHOUT language parameter", async () => {
   await using db = await createTestDB();
+
+  const trends = new DittoTrends({ ...db, conf });
 
   const events: NostrEvent[] = [];
 
@@ -43,7 +48,7 @@ Deno.test("getTrendingTagValues(): 'e' tag and WITHOUT language parameter", asyn
     await db.store.event(event);
   }
 
-  const trends = await getTrendingTagValues(db.kysely, ['e'], { kinds: [1, 7] });
+  const results = await trends.getTrendingTagValues(['e'], { kinds: [1, 7] });
 
   const expected = [{ value: post1.id, authors: numberOfAuthorsWhoLikedPost1, uses: post1uses }, {
     value: post2.id,
@@ -51,12 +56,13 @@ Deno.test("getTrendingTagValues(): 'e' tag and WITHOUT language parameter", asyn
     uses: post2uses,
   }];
 
-  assertEquals(trends, expected);
+  assertEquals(results, expected);
 });
 
-Deno.test("getTrendingTagValues(): 'e' tag and WITH language parameter", async () => {
+Deno.test("Trends.getTrendingTagValues(): 'e' tag and WITH language parameter", async () => {
   await using db = await createTestDB();
 
+  const trends = new DittoTrends({ ...db, conf });
   const events: NostrEvent[] = [];
 
   let sk = generateSecretKey();
@@ -104,10 +110,10 @@ Deno.test("getTrendingTagValues(): 'e' tag and WITH language parameter", async (
 
   const languagesIds = (await db.store.query([{ search: 'language:pt' }])).map((event) => event.id);
 
-  const trends = await getTrendingTagValues(db.kysely, ['e'], { kinds: [1, 7] }, languagesIds);
+  const results = await trends.getTrendingTagValues(['e'], { kinds: [1, 7] }, languagesIds);
 
   // portuguese post
   const expected = [{ value: post1.id, authors: numberOfAuthorsWhoLikedPost1, uses: post1uses }];
 
-  assertEquals(trends, expected);
+  assertEquals(results, expected);
 });

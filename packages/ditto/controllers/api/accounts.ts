@@ -1,39 +1,39 @@
-import { NostrEvent, NostrFilter, NSchema as n } from '@nostrify/nostrify';
+import { NostrEvent, NostrFilter, NSchema as n, NStore } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 import { z } from 'zod';
 
 import { type AppController } from '@/app.ts';
 import { getAuthor, getFollowedPubkeys } from '@/queries.ts';
 import { booleanParamSchema, fileSchema } from '@/schema.ts';
-import { Storages } from '@/storages.ts';
 import { uploadFile } from '@/utils/upload.ts';
 import { nostrNow } from '@/utils.ts';
 import { assertAuthenticated, createEvent, paginated, parseBody, updateEvent, updateListEvent } from '@/utils/api.ts';
 import { extractIdentifier, lookupAccount, lookupPubkey } from '@/utils/lookup.ts';
 import { renderAccounts, renderEventAccounts, renderStatuses } from '@/views.ts';
-import { accountFromPubkey, renderAccount } from '@/views/mastodon/accounts.ts';
+import { AccountView } from '@/views/mastodon/AccountView.ts';
 import { renderRelationship } from '@/views/mastodon/relationships.ts';
-import { renderReblog, renderStatus } from '@/views/mastodon/statuses.ts';
+import { StatusView } from '@/views/mastodon/StatusView.ts';
 import { metadataSchema } from '@/schemas/nostr.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { bech32ToPubkey } from '@/utils.ts';
 import { addTag, deleteTag, findReplyTag, getTagSet } from '@/utils/tags.ts';
 import { getPubkeysBySearch } from '@/utils/search.ts';
-import { MastodonAccount } from '@/entities/MastodonAccount.ts';
 
 const createAccountSchema = z.object({
   username: z.string().min(1).max(30).regex(/^[a-z0-9_]+$/i),
 });
 
 const createAccountController: AppController = async (c) => {
-  const pubkey = await c.get('signer')?.getPublicKey()!;
+  const { conf, user } = c.var;
+
+  const pubkey = await user!.signer.getPublicKey();
   const result = createAccountSchema.safeParse(await c.req.json());
 
   if (!result.success) {
     return c.json({ error: 'Bad request', schema: result.error }, 400);
   }
 
-  if (c.var.conf.forbiddenUsernames.includes(result.data.username)) {
+  if (conf.forbiddenUsernames.includes(result.data.username)) {
     return c.json({ error: 'Username is reserved.' }, 422);
   }
 
@@ -46,13 +46,11 @@ const createAccountController: AppController = async (c) => {
 };
 
 const verifyCredentialsController: AppController = async (c) => {
-  const signer = c.get('signer')!;
-  const pubkey = await signer.getPublicKey();
-
-  const store = await Storages.db();
+  const { user, store } = c.var;
+  const pubkey = await user!.signer.getPublicKey();
 
   const [author, [settingsEvent]] = await Promise.all([
-    getAuthor(pubkey, { signal: AbortSignal.timeout(5000) }),
+    getAuthor(c.var, pubkey),
 
     store.query([{
       kinds: [30078],
@@ -69,23 +67,24 @@ const verifyCredentialsController: AppController = async (c) => {
     // Do nothing
   }
 
-  const account = author
-    ? await renderAccount(author, { withSource: true, settingsStore })
-    : await accountFromPubkey(pubkey, { withSource: true, settingsStore });
+  const view = new AccountView(c.var);
+  const account = view.render(author, pubkey, { withSource: true, settingsStore });
 
   return c.json(account);
 };
 
 const accountController: AppController = async (c) => {
   const pubkey = c.req.param('pubkey');
+  const event = await getAuthor(c.var, pubkey);
 
-  const event = await getAuthor(pubkey);
   if (event) {
     assertAuthenticated(c, event);
-    return c.json(await renderAccount(event));
-  } else {
-    return c.json(await accountFromPubkey(pubkey));
   }
+
+  const view = new AccountView(c.var);
+  const account = view.render(event, pubkey);
+
+  return c.json(account);
 };
 
 const accountLookupController: AppController = async (c) => {
@@ -95,17 +94,23 @@ const accountLookupController: AppController = async (c) => {
     return c.json({ error: 'Missing `acct` query parameter.' }, 422);
   }
 
-  const event = await lookupAccount(decodeURIComponent(acct));
+  const view = new AccountView(c.var);
+  const event = await lookupAccount(c.var, decodeURIComponent(acct));
+
   if (event) {
     assertAuthenticated(c, event);
-    return c.json(await renderAccount(event));
+    const account = view.render(event);
+    return c.json(account);
   }
-  try {
-    const pubkey = bech32ToPubkey(decodeURIComponent(acct));
-    return c.json(await accountFromPubkey(pubkey!));
-  } catch {
-    return c.json({ error: 'Could not find user.' }, 404);
+
+  const pubkey = bech32ToPubkey(decodeURIComponent(acct));
+
+  if (pubkey) {
+    const account = view.render(undefined, pubkey);
+    return c.json(account);
   }
+
+  return c.json({ error: 'Could not find user.' }, 404);
 };
 
 const accountSearchQuerySchema = z.object({
@@ -115,11 +120,8 @@ const accountSearchQuerySchema = z.object({
 });
 
 const accountSearchController: AppController = async (c) => {
-  const { signal } = c.req.raw;
-  const { limit } = c.get('pagination');
-
-  const kysely = await Storages.kysely();
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
+  const { store, kysely, user, pagination, signal } = c.var;
+  const { limit } = pagination;
 
   const result = accountSearchQuerySchema.safeParse(c.req.query());
 
@@ -128,14 +130,14 @@ const accountSearchController: AppController = async (c) => {
   }
 
   const query = decodeURIComponent(result.data.q);
-  const store = await Storages.search();
-
   const lookup = extractIdentifier(query);
-  const event = await lookupAccount(lookup ?? query);
+  const event = await lookupAccount(c.var, lookup ?? query);
+  const view = new AccountView(c.var);
+  const viewerPubkey = await user?.signer.getPublicKey();
 
   if (!event && lookup) {
-    const pubkey = await lookupPubkey(lookup);
-    return c.json(pubkey ? [accountFromPubkey(pubkey)] : []);
+    const pubkey = await lookupPubkey(c.var, lookup);
+    return c.json(pubkey ? [view.render(undefined, pubkey)] : []);
   }
 
   const events: NostrEvent[] = [];
@@ -143,7 +145,7 @@ const accountSearchController: AppController = async (c) => {
   if (event) {
     events.push(event);
   } else {
-    const following = viewerPubkey ? await getFollowedPubkeys(viewerPubkey) : new Set<string>();
+    const following = viewerPubkey ? await getFollowedPubkeys(c.var, viewerPubkey) : new Set<string>();
     const authors = [...await getPubkeysBySearch(kysely, { q: query, limit, offset: 0, following })];
     const profiles = await store.query([{ kinds: [0], authors, limit }], { signal });
 
@@ -155,25 +157,25 @@ const accountSearchController: AppController = async (c) => {
     }
   }
 
-  const accounts = await hydrateEvents({ events, store, signal })
-    .then((events) => events.map((event) => renderAccount(event)));
+  const accounts = await hydrateEvents(c.var, events)
+    .then((events) => events.map((event) => view.render(event)));
 
   return c.json(accounts);
 };
 
 const relationshipsController: AppController = async (c) => {
-  const pubkey = await c.get('signer')?.getPublicKey()!;
+  const { store, user } = c.var;
+
+  const pubkey = await user!.signer.getPublicKey();
   const ids = z.array(z.string()).safeParse(c.req.queries('id[]'));
 
   if (!ids.success) {
     return c.json({ error: 'Missing `id[]` query parameters.' }, 422);
   }
 
-  const db = await Storages.db();
-
   const [sourceEvents, targetEvents] = await Promise.all([
-    db.query([{ kinds: [3, 10000], authors: [pubkey] }]),
-    db.query([{ kinds: [3], authors: ids.data }]),
+    store.query([{ kinds: [3, 10000], authors: [pubkey] }]),
+    store.query([{ kinds: [3], authors: ids.data }]),
   ]);
 
   const event3 = sourceEvents.find((event) => event.kind === 3 && event.pubkey === pubkey);
@@ -194,7 +196,6 @@ const relationshipsController: AppController = async (c) => {
 
 const accountStatusesQuerySchema = z.object({
   pinned: booleanParamSchema.optional(),
-  limit: z.coerce.number().nonnegative().transform((v) => Math.min(v, 40)).catch(20),
   exclude_replies: booleanParamSchema.optional(),
   tagged: z.string().optional(),
   only_media: booleanParamSchema.optional(),
@@ -202,12 +203,9 @@ const accountStatusesQuerySchema = z.object({
 
 const accountStatusesController: AppController = async (c) => {
   const pubkey = c.req.param('pubkey');
-  const { conf } = c.var;
-  const { since, until } = c.var.pagination;
-  const { pinned, limit, exclude_replies, tagged, only_media } = accountStatusesQuerySchema.parse(c.req.query());
-  const { signal } = c.req.raw;
 
-  const store = await Storages.db();
+  const { conf, store, pagination, signal } = c.var;
+  const { pinned, exclude_replies, tagged, only_media } = accountStatusesQuerySchema.parse(c.req.query());
 
   const [[author], [user]] = await Promise.all([
     store.query([{ kinds: [0], authors: [pubkey], limit: 1 }], { signal }),
@@ -237,9 +235,7 @@ const accountStatusesController: AppController = async (c) => {
   const filter: NostrFilter = {
     authors: [pubkey],
     kinds: [1, 6, 20],
-    since,
-    until,
-    limit,
+    ...pagination,
   };
 
   const search: string[] = [];
@@ -260,10 +256,10 @@ const accountStatusesController: AppController = async (c) => {
     filter.search = search.join(' ');
   }
 
-  const opts = { signal, limit, timeout: conf.db.timeouts.timelines };
+  const opts = { signal, timeout: conf.db.timeouts.timelines };
 
   const events = await store.query([filter], opts)
-    .then((events) => hydrateEvents({ events, store, signal }))
+    .then((events) => hydrateEvents(c.var, events))
     .then((events) => {
       if (exclude_replies) {
         return events.filter((event) => {
@@ -274,14 +270,12 @@ const accountStatusesController: AppController = async (c) => {
       return events;
     });
 
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
+  const view = new StatusView(c.var);
 
   const statuses = await Promise.all(
-    events.map((event) => {
-      if (event.kind === 6) return renderReblog(event, { viewerPubkey });
-      return renderStatus(event, { viewerPubkey });
-    }),
+    events.map((event) => view.render(event)),
   );
+
   return paginated(c, events, statuses);
 };
 
@@ -301,12 +295,11 @@ const updateCredentialsSchema = z.object({
 });
 
 const updateCredentialsController: AppController = async (c) => {
-  const signer = c.get('signer')!;
-  const pubkey = await signer.getPublicKey();
+  const { store, user } = c.var;
+
+  const pubkey = await user!.signer.getPublicKey();
   const body = await parseBody(c.req.raw);
   const result = updateCredentialsSchema.safeParse(body);
-  const store = await Storages.db();
-  const signal = c.req.raw.signal;
 
   if (!result.success) {
     return c.json(result.error, 422);
@@ -319,6 +312,7 @@ const updateCredentialsController: AppController = async (c) => {
     event = (await store.query([{ kinds: [0], authors: [pubkey] }]))[0];
   } else {
     event = await updateEvent(
+      c.var,
       { kinds: [0], authors: [pubkey], limit: 1 },
       async (prev) => {
         const meta = n.json().pipe(metadataSchema).catch({}).parse(prev.content);
@@ -364,26 +358,22 @@ const updateCredentialsController: AppController = async (c) => {
           tags: [],
         };
       },
-      c,
     );
   }
 
   const settingsStore = result.data.pleroma_settings_store;
 
-  let account: MastodonAccount;
-  if (event) {
-    await hydrateEvents({ events: [event], store, signal });
-    account = await renderAccount(event, { withSource: true, settingsStore });
-  } else {
-    account = await accountFromPubkey(pubkey, { withSource: true, settingsStore });
-  }
+  await hydrateEvents(c.var, [event]);
+
+  const view = new AccountView(c.var);
+  const account = view.render(event, pubkey, { withSource: true, settingsStore });
 
   if (settingsStore) {
-    await createEvent({
+    await createEvent(c.var, {
       kind: 30078,
       tags: [['d', 'pub.ditto.pleroma_settings_store']],
       content: JSON.stringify(settingsStore),
-    }, c);
+    });
   }
 
   return c.json(account);
@@ -391,16 +381,19 @@ const updateCredentialsController: AppController = async (c) => {
 
 /** https://docs.joinmastodon.org/methods/accounts/#follow */
 const followController: AppController = async (c) => {
-  const sourcePubkey = await c.get('signer')?.getPublicKey()!;
+  const { store, user } = c.var;
+
+  const sourcePubkey = await user!.signer.getPublicKey();
   const targetPubkey = c.req.param('pubkey');
 
   await updateListEvent(
+    c.var,
     { kinds: [3], authors: [sourcePubkey], limit: 1 },
     (tags) => addTag(tags, ['p', targetPubkey]),
-    c,
   );
 
-  const relationship = await getRelationship(sourcePubkey, targetPubkey);
+  const relationship = await getRelationship(store, sourcePubkey, targetPubkey);
+
   relationship.following = true;
 
   return c.json(relationship);
@@ -408,16 +401,18 @@ const followController: AppController = async (c) => {
 
 /** https://docs.joinmastodon.org/methods/accounts/#unfollow */
 const unfollowController: AppController = async (c) => {
-  const sourcePubkey = await c.get('signer')?.getPublicKey()!;
+  const { store, user } = c.var;
+
+  const sourcePubkey = await user!.signer.getPublicKey();
   const targetPubkey = c.req.param('pubkey');
 
   await updateListEvent(
+    c.var,
     { kinds: [3], authors: [sourcePubkey], limit: 1 },
     (tags) => deleteTag(tags, ['p', targetPubkey]),
-    c,
   );
 
-  const relationship = await getRelationship(sourcePubkey, targetPubkey);
+  const relationship = await getRelationship(store, sourcePubkey, targetPubkey);
   return c.json(relationship);
 };
 
@@ -429,7 +424,7 @@ const followersController: AppController = (c) => {
 
 const followingController: AppController = async (c) => {
   const pubkey = c.req.param('pubkey');
-  const pubkeys = await getFollowedPubkeys(pubkey);
+  const pubkeys = await getFollowedPubkeys(c.var, pubkey);
   return renderAccounts(c, [...pubkeys]);
 };
 
@@ -445,43 +440,45 @@ const unblockController: AppController = (c) => {
 
 /** https://docs.joinmastodon.org/methods/accounts/#mute */
 const muteController: AppController = async (c) => {
-  const sourcePubkey = await c.get('signer')?.getPublicKey()!;
+  const { store, user } = c.var;
+
+  const sourcePubkey = await user!.signer.getPublicKey();
   const targetPubkey = c.req.param('pubkey');
 
   await updateListEvent(
+    c.var,
     { kinds: [10000], authors: [sourcePubkey], limit: 1 },
     (tags) => addTag(tags, ['p', targetPubkey]),
-    c,
   );
 
-  const relationship = await getRelationship(sourcePubkey, targetPubkey);
+  const relationship = await getRelationship(store, sourcePubkey, targetPubkey);
   return c.json(relationship);
 };
 
 /** https://docs.joinmastodon.org/methods/accounts/#unmute */
 const unmuteController: AppController = async (c) => {
-  const sourcePubkey = await c.get('signer')?.getPublicKey()!;
+  const { store, user } = c.var;
+
+  const sourcePubkey = await user!.signer.getPublicKey();
   const targetPubkey = c.req.param('pubkey');
 
   await updateListEvent(
+    c.var,
     { kinds: [10000], authors: [sourcePubkey], limit: 1 },
     (tags) => deleteTag(tags, ['p', targetPubkey]),
-    c,
   );
 
-  const relationship = await getRelationship(sourcePubkey, targetPubkey);
+  const relationship = await getRelationship(store, sourcePubkey, targetPubkey);
   return c.json(relationship);
 };
 
 const favouritesController: AppController = async (c) => {
-  const pubkey = await c.get('signer')?.getPublicKey()!;
-  const params = c.get('pagination');
-  const { signal } = c.req.raw;
+  const { store, user, pagination, signal } = c.var;
 
-  const store = await Storages.db();
+  const pubkey = await user!.signer.getPublicKey();
 
   const events7 = await store.query(
-    [{ kinds: [7], authors: [pubkey], ...params }],
+    [{ kinds: [7], authors: [pubkey], ...pagination }],
     { signal },
   );
 
@@ -489,32 +486,32 @@ const favouritesController: AppController = async (c) => {
     .map((event) => event.tags.find((tag) => tag[0] === 'e')?.[1])
     .filter((id): id is string => !!id);
 
-  const events1 = await store.query([{ kinds: [1, 20], ids }], { signal })
-    .then((events) => hydrateEvents({ events, store, signal }));
+  const events = await store.query([{ kinds: [1, 20], ids }], { signal })
+    .then((events) => hydrateEvents(c.var, events));
 
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
+  const view = new StatusView(c.var);
 
   const statuses = await Promise.all(
-    events1.map((event) => renderStatus(event, { viewerPubkey })),
+    events.map((event) => view.render(event)),
   );
-  return paginated(c, events1, statuses);
+
+  return paginated(c, events, statuses);
 };
 
 const familiarFollowersController: AppController = async (c) => {
-  const store = await Storages.db();
-  const signer = c.get('signer')!;
-  const pubkey = await signer.getPublicKey();
+  const { store, user } = c.var;
 
   const ids = z.array(z.string()).parse(c.req.queries('id[]'));
-  const follows = await getFollowedPubkeys(pubkey);
+  const pubkey = await user!.signer.getPublicKey();
+  const follows = await getFollowedPubkeys(c.var, pubkey);
+  const view = new AccountView(c.var);
 
   const results = await Promise.all(ids.map(async (id) => {
-    const followLists = await store.query([{ kinds: [3], authors: [...follows], '#p': [id] }])
-      .then((events) => hydrateEvents({ events, store }));
+    const followLists = await store
+      .query([{ kinds: [3], authors: [...follows], '#p': [id] }])
+      .then((events) => hydrateEvents(c.var, events));
 
-    const accounts = await Promise.all(
-      followLists.map((event) => event.author ? renderAccount(event.author) : accountFromPubkey(event.pubkey)),
-    );
+    const accounts = followLists.map((event) => view.render(event.author, event.pubkey));
 
     return { id, accounts };
   }));
@@ -522,12 +519,10 @@ const familiarFollowersController: AppController = async (c) => {
   return c.json(results);
 };
 
-async function getRelationship(sourcePubkey: string, targetPubkey: string) {
-  const db = await Storages.db();
-
+async function getRelationship(store: NStore, sourcePubkey: string, targetPubkey: string) {
   const [sourceEvents, targetEvents] = await Promise.all([
-    db.query([{ kinds: [3, 10000], authors: [sourcePubkey] }]),
-    db.query([{ kinds: [3], authors: [targetPubkey] }]),
+    store.query([{ kinds: [3, 10000], authors: [sourcePubkey] }]),
+    store.query([{ kinds: [3], authors: [targetPubkey] }]),
   ]);
 
   return renderRelationship({

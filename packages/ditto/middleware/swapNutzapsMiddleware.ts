@@ -1,10 +1,9 @@
+import { AppEnv } from '@/app.ts';
 import { CashuMint, CashuWallet, getEncodedToken, type Proof } from '@cashu/cashu-ts';
-import { type DittoConf } from '@ditto/conf';
 import { MiddlewareHandler } from '@hono/hono';
 import { HTTPException } from '@hono/hono/http-exception';
 import { getPublicKey } from 'nostr-tools';
-import { NostrFilter, NostrSigner, NSchema as n, NStore } from '@nostrify/nostrify';
-import { SetRequired } from 'type-fest';
+import { NostrFilter, NSchema as n } from '@nostrify/nostrify';
 import { stringToBytes } from '@scure/base';
 import { logi } from '@soapbox/logi';
 
@@ -17,33 +16,24 @@ import { z } from 'zod';
  * Swap nutzaps into wallet (create new events) if the user has a wallet, otheriwse, just fallthrough.
  * Errors are only thrown if 'signer' and 'store' middlewares are not set.
  */
-export const swapNutzapsMiddleware: MiddlewareHandler<
-  { Variables: { signer: SetRequired<NostrSigner, 'nip44'>; store: NStore; conf: DittoConf } }
-> = async (c, next) => {
-  const { conf } = c.var;
-  const signer = c.get('signer');
-  const store = c.get('store');
+export const swapNutzapsMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const { conf, store, user, signal } = c.var;
 
-  if (!signer) {
+  if (!user) {
     throw new HTTPException(401, { message: 'No pubkey provided' });
   }
 
-  if (!signer.nip44) {
+  if (!user.signer.nip44) {
     throw new HTTPException(401, { message: 'No NIP-44 signer provided' });
   }
 
-  if (!store) {
-    throw new HTTPException(401, { message: 'No store provided' });
-  }
-
-  const { signal } = c.req.raw;
-  const pubkey = await signer.getPublicKey();
+  const pubkey = await user.signer.getPublicKey();
   const [wallet] = await store.query([{ authors: [pubkey], kinds: [17375] }], { signal });
 
   if (wallet) {
     let decryptedContent: string;
     try {
-      decryptedContent = await signer.nip44.decrypt(pubkey, wallet.content);
+      decryptedContent = await user.signer.nip44.decrypt(pubkey, wallet.content);
     } catch (e) {
       logi({
         level: 'error',
@@ -152,24 +142,24 @@ export const swapNutzapsMiddleware: MiddlewareHandler<
         const cashuWallet = new CashuWallet(new CashuMint(mint));
         const receiveProofs = await cashuWallet.receive(token, { privkey });
 
-        const unspentProofs = await createEvent({
+        const unspentProofs = await createEvent({ ...c.var, user }, {
           kind: 7375,
-          content: await signer.nip44.encrypt(
+          content: await user.signer.nip44.encrypt(
             pubkey,
             JSON.stringify({
               mint,
               proofs: receiveProofs,
             }),
           ),
-        }, c);
+        });
 
         const amount = receiveProofs.reduce((accumulator, current) => {
           return accumulator + current.amount;
         }, 0);
 
-        await createEvent({
+        await createEvent({ ...c.var, user }, {
           kind: 7376,
-          content: await signer.nip44.encrypt(
+          content: await user.signer.nip44.encrypt(
             pubkey,
             JSON.stringify([
               ['direction', 'in'],
@@ -178,7 +168,7 @@ export const swapNutzapsMiddleware: MiddlewareHandler<
             ]),
           ),
           tags: mintsToProofs[mint].redeemed,
-        }, c);
+        });
       } catch (e) {
         logi({ level: 'error', ns: 'ditto.api.cashu.wallet.swap', error: errorJson(e) });
       }

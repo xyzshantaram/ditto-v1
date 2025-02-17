@@ -7,12 +7,10 @@ import {
 import { register } from 'prom-client';
 
 import { AppController } from '@/app.ts';
-import { Storages } from '@/storages.ts';
 
 /** Prometheus/OpenMetrics controller. */
 export const metricsController: AppController = async (c) => {
-  const db = await Storages.database();
-  const pool = await Storages.client();
+  const { db, pool } = c.var;
 
   // Update some metrics at request time.
   dbPoolSizeGauge.set(db.poolSize);

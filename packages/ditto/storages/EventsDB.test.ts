@@ -1,9 +1,9 @@
+import { DittoConf } from '@ditto/conf';
 import { assertEquals, assertRejects } from '@std/assert';
-import { generateSecretKey } from 'nostr-tools';
+import { generateSecretKey, nip19 } from 'nostr-tools';
 
 import { RelayError } from '@/RelayError.ts';
 import { eventFixture, genEvent } from '@/test.ts';
-import { Conf } from '@/config.ts';
 import { EventsDB } from '@/storages/EventsDB.ts';
 import { createTestDB } from '@/test.ts';
 
@@ -122,7 +122,10 @@ Deno.test("user cannot delete another user's event", async () => {
 });
 
 Deno.test('admin can delete any event', async () => {
-  await using db = await createTestDB({ pure: true });
+  const admin = generateSecretKey();
+  const conf = new DittoConf(new Map([['DITTO_NSEC', nip19.nsecEncode(admin)]]));
+
+  await using db = await createTestDB({ conf, pure: true });
   const { store } = db;
 
   const sk = generateSecretKey();
@@ -139,20 +142,23 @@ Deno.test('admin can delete any event', async () => {
   assertEquals(await store.query([{ kinds: [1] }]), [two, one]);
 
   await store.event(
-    genEvent({ kind: 5, tags: [['e', one.id]] }, Conf.seckey), // admin sk
+    genEvent({ kind: 5, tags: [['e', one.id]] }, conf.seckey), // admin sk
   );
 
   assertEquals(await store.query([{ kinds: [1] }]), [two]);
 });
 
 Deno.test('throws a RelayError when inserting an event deleted by the admin', async () => {
-  await using db = await createTestDB({ pure: true });
+  const admin = generateSecretKey();
+  const conf = new DittoConf(new Map([['DITTO_NSEC', nip19.nsecEncode(admin)]]));
+
+  await using db = await createTestDB({ conf, pure: true });
   const { store } = db;
 
   const event = genEvent();
   await store.event(event);
 
-  const deletion = genEvent({ kind: 5, tags: [['e', event.id]] }, Conf.seckey);
+  const deletion = genEvent({ kind: 5, tags: [['e', event.id]] }, conf.seckey);
   await store.event(deletion);
 
   await assertRejects(

@@ -8,7 +8,7 @@ import { S3Uploader } from '@/uploaders/S3Uploader.ts';
 
 /** Set an uploader for the user. */
 export const uploaderMiddleware: AppMiddleware = async (c, next) => {
-  const { signer, conf } = c.var;
+  const { conf, user } = c.var;
 
   switch (conf.uploader) {
     case 's3':
@@ -35,11 +35,14 @@ export const uploaderMiddleware: AppMiddleware = async (c, next) => {
       c.set('uploader', new DenoUploader({ baseUrl: conf.mediaDomain, dir: conf.uploadsDir }));
       break;
     case 'nostrbuild':
-      c.set('uploader', new NostrBuildUploader({ endpoint: conf.nostrbuildEndpoint, signer, fetch: safeFetch }));
+      c.set(
+        'uploader',
+        new NostrBuildUploader({ endpoint: conf.nostrbuildEndpoint, signer: user?.signer, fetch: safeFetch }),
+      );
       break;
     case 'blossom':
-      if (signer) {
-        c.set('uploader', new BlossomUploader({ servers: conf.blossomServers, signer, fetch: safeFetch }));
+      if (user) {
+        c.set('uploader', new BlossomUploader({ servers: conf.blossomServers, signer: user.signer, fetch: safeFetch }));
       }
       break;
   }

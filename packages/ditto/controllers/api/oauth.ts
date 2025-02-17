@@ -1,14 +1,16 @@
-import { NConnectSigner, NSchema as n, NSecSigner } from '@nostrify/nostrify';
+import { DittoConf } from '@ditto/conf';
+import { DittoTables } from '@ditto/db';
+import { NConnectSigner, NRelay, NSchema as n, NSecSigner } from '@nostrify/nostrify';
 import { escape } from 'entities';
 import { generateSecretKey } from 'nostr-tools';
 import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
-import { Storages } from '@/storages.ts';
 import { nostrNow } from '@/utils.ts';
 import { parseBody } from '@/utils/api.ts';
 import { aesEncrypt } from '@/utils/aes.ts';
 import { generateToken, getTokenHash } from '@/utils/auth.ts';
+import { Kysely } from 'kysely';
 
 const passwordGrantSchema = z.object({
   grant_type: z.literal('password'),
@@ -39,7 +41,6 @@ const createTokenSchema = z.discriminatedUnion('grant_type', [
 ]);
 
 const createTokenController: AppController = async (c) => {
-  const { conf } = c.var;
   const body = await parseBody(c.req.raw);
   const result = createTokenSchema.safeParse(body);
 
@@ -50,7 +51,7 @@ const createTokenController: AppController = async (c) => {
   switch (result.data.grant_type) {
     case 'nostr_bunker':
       return c.json({
-        access_token: await getToken(result.data, conf.seckey),
+        access_token: await getToken(c.var, result.data),
         token_type: 'Bearer',
         scope: 'read write follow push',
         created_at: nostrNow(),
@@ -90,6 +91,8 @@ const revokeTokenSchema = z.object({
  * https://docs.joinmastodon.org/methods/oauth/#revoke
  */
 const revokeTokenController: AppController = async (c) => {
+  const { kysely } = c.var;
+
   const body = await parseBody(c.req.raw);
   const result = revokeTokenSchema.safeParse(body);
 
@@ -99,7 +102,6 @@ const revokeTokenController: AppController = async (c) => {
 
   const { token } = result.data;
 
-  const kysely = await Storages.kysely();
   const tokenHash = await getTokenHash(token as `token1${string}`);
 
   await kysely
@@ -110,11 +112,17 @@ const revokeTokenController: AppController = async (c) => {
   return c.json({});
 };
 
+interface GetTokenOpts {
+  conf: DittoConf;
+  kysely: Kysely<DittoTables>;
+  pubsub: NRelay;
+}
+
 async function getToken(
+  opts: GetTokenOpts,
   { pubkey: bunkerPubkey, secret, relays = [] }: { pubkey: string; secret?: string; relays?: string[] },
-  dittoSeckey: Uint8Array,
 ): Promise<`token1${string}`> {
-  const kysely = await Storages.kysely();
+  const { conf, kysely, pubsub } = opts;
   const { token, hash } = await generateToken();
 
   const nip46Seckey = generateSecretKey();
@@ -123,7 +131,7 @@ async function getToken(
     encryption: 'nip44',
     pubkey: bunkerPubkey,
     signer: new NSecSigner(nip46Seckey),
-    relay: await Storages.pubsub(), // TODO: Use the relays from the request.
+    relay: pubsub, // TODO: Use the relays from the request.
     timeout: 60_000,
   });
 
@@ -134,7 +142,7 @@ async function getToken(
     token_hash: hash,
     pubkey: userPubkey,
     bunker_pubkey: bunkerPubkey,
-    nip46_sk_enc: await aesEncrypt(dittoSeckey, nip46Seckey),
+    nip46_sk_enc: await aesEncrypt(conf.seckey, nip46Seckey),
     nip46_relays: relays,
     created_at: new Date(),
   }).execute();
@@ -222,8 +230,6 @@ const oauthAuthorizeSchema = z.object({
 
 /** Controller the OAuth form is POSTed to. */
 const oauthAuthorizeController: AppController = async (c) => {
-  const { conf } = c.var;
-
   /** FormData results in JSON. */
   const result = oauthAuthorizeSchema.safeParse(await parseBody(c.req.raw));
 
@@ -236,11 +242,11 @@ const oauthAuthorizeController: AppController = async (c) => {
 
   const bunker = new URL(bunker_uri);
 
-  const token = await getToken({
+  const token = await getToken(c.var, {
     pubkey: bunker.hostname,
     secret: bunker.searchParams.get('secret') || undefined,
     relays: bunker.searchParams.getAll('relay'),
-  }, conf.seckey);
+  });
 
   if (redirectUri === 'urn:ietf:wg:oauth:2.0:oob') {
     return c.text(token);

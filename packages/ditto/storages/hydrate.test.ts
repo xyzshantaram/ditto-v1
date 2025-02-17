@@ -1,4 +1,3 @@
-import { MockRelay } from '@nostrify/nostrify/test';
 import { assertEquals } from '@std/assert';
 
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
@@ -6,29 +5,25 @@ import { hydrateEvents } from '@/storages/hydrate.ts';
 import { createTestDB, eventFixture } from '@/test.ts';
 
 Deno.test('hydrateEvents(): author --- WITHOUT stats', async () => {
-  const relay = new MockRelay();
   await using db = await createTestDB();
+  const { store } = db;
 
   const event0 = await eventFixture('event-0');
   const event1 = await eventFixture('event-1');
 
   // Save events to database
-  await relay.event(event0);
-  await relay.event(event1);
+  await store.event(event0);
+  await store.event(event1);
 
-  await hydrateEvents({
-    events: [event1],
-    store: relay,
-    kysely: db.kysely,
-  });
+  await hydrateEvents(db, [event1]);
 
   const expectedEvent = { ...event1, author: event0 };
   assertEquals(event1, expectedEvent);
 });
 
 Deno.test('hydrateEvents(): repost --- WITHOUT stats', async () => {
-  const relay = new MockRelay();
   await using db = await createTestDB();
+  const { store } = db;
 
   const event0madePost = await eventFixture('event-0-the-one-who-post-and-users-repost');
   const event0madeRepost = await eventFixture('event-0-the-one-who-repost');
@@ -36,16 +31,12 @@ Deno.test('hydrateEvents(): repost --- WITHOUT stats', async () => {
   const event6 = await eventFixture('event-6');
 
   // Save events to database
-  await relay.event(event0madePost);
-  await relay.event(event0madeRepost);
-  await relay.event(event1reposted);
-  await relay.event(event6);
+  await store.event(event0madePost);
+  await store.event(event0madeRepost);
+  await store.event(event1reposted);
+  await store.event(event6);
 
-  await hydrateEvents({
-    events: [event6],
-    store: relay,
-    kysely: db.kysely,
-  });
+  await hydrateEvents(db, [event6]);
 
   const expectedEvent6 = {
     ...event6,
@@ -56,8 +47,8 @@ Deno.test('hydrateEvents(): repost --- WITHOUT stats', async () => {
 });
 
 Deno.test('hydrateEvents(): quote repost --- WITHOUT stats', async () => {
-  const relay = new MockRelay();
   await using db = await createTestDB();
+  const { store } = db;
 
   const event0madeQuoteRepost = await eventFixture('event-0-the-one-who-quote-repost');
   const event0 = await eventFixture('event-0');
@@ -65,16 +56,12 @@ Deno.test('hydrateEvents(): quote repost --- WITHOUT stats', async () => {
   const event1willBeQuoteReposted = await eventFixture('event-1-that-will-be-quote-reposted');
 
   // Save events to database
-  await relay.event(event0madeQuoteRepost);
-  await relay.event(event0);
-  await relay.event(event1quoteRepost);
-  await relay.event(event1willBeQuoteReposted);
+  await store.event(event0madeQuoteRepost);
+  await store.event(event0);
+  await store.event(event1quoteRepost);
+  await store.event(event1willBeQuoteReposted);
 
-  await hydrateEvents({
-    events: [event1quoteRepost],
-    store: relay,
-    kysely: db.kysely,
-  });
+  await hydrateEvents(db, [event1quoteRepost]);
 
   const expectedEvent1quoteRepost = {
     ...event1quoteRepost,
@@ -86,8 +73,8 @@ Deno.test('hydrateEvents(): quote repost --- WITHOUT stats', async () => {
 });
 
 Deno.test('hydrateEvents(): repost of quote repost --- WITHOUT stats', async () => {
-  const relay = new MockRelay();
   await using db = await createTestDB();
+  const { store } = db;
 
   const author = await eventFixture('event-0-makes-repost-with-quote-repost');
   const event1 = await eventFixture('event-1-will-be-reposted-with-quote-repost');
@@ -95,16 +82,12 @@ Deno.test('hydrateEvents(): repost of quote repost --- WITHOUT stats', async () 
   const event1quote = await eventFixture('event-1-quote-repost-will-be-reposted');
 
   // Save events to database
-  await relay.event(author);
-  await relay.event(event1);
-  await relay.event(event1quote);
-  await relay.event(event6);
+  await store.event(author);
+  await store.event(event1);
+  await store.event(event1quote);
+  await store.event(event6);
 
-  await hydrateEvents({
-    events: [event6],
-    store: relay,
-    kysely: db.kysely,
-  });
+  await hydrateEvents(db, [event6]);
 
   const expectedEvent6 = {
     ...event6,
@@ -115,8 +98,8 @@ Deno.test('hydrateEvents(): repost of quote repost --- WITHOUT stats', async () 
 });
 
 Deno.test('hydrateEvents(): report pubkey and post // kind 1984 --- WITHOUT stats', async () => {
-  const relay = new MockRelay();
   await using db = await createTestDB();
+  const { store } = db;
 
   const authorDictator = await eventFixture('kind-0-dictator');
   const authorVictim = await eventFixture('kind-0-george-orwell');
@@ -124,16 +107,12 @@ Deno.test('hydrateEvents(): report pubkey and post // kind 1984 --- WITHOUT stat
   const event1 = await eventFixture('kind-1-author-george-orwell');
 
   // Save events to database
-  await relay.event(authorDictator);
-  await relay.event(authorVictim);
-  await relay.event(reportEvent);
-  await relay.event(event1);
+  await store.event(authorDictator);
+  await store.event(authorVictim);
+  await store.event(reportEvent);
+  await store.event(event1);
 
-  await hydrateEvents({
-    events: [reportEvent],
-    store: relay,
-    kysely: db.kysely,
-  });
+  await hydrateEvents(db, [reportEvent]);
 
   const expectedEvent: DittoEvent = {
     ...reportEvent,
@@ -145,8 +124,8 @@ Deno.test('hydrateEvents(): report pubkey and post // kind 1984 --- WITHOUT stat
 });
 
 Deno.test('hydrateEvents(): zap sender, zap amount, zapped post // kind 9735 --- WITHOUT stats', async () => {
-  const relay = new MockRelay();
   await using db = await createTestDB();
+  const { store } = db;
 
   const zapSender = await eventFixture('kind-0-jack');
   const zapReceipt = await eventFixture('kind-9735-jack-zap-patrick');
@@ -154,16 +133,12 @@ Deno.test('hydrateEvents(): zap sender, zap amount, zapped post // kind 9735 ---
   const zapReceiver = await eventFixture('kind-0-patrick');
 
   // Save events to database
-  await relay.event(zapSender);
-  await relay.event(zapReceipt);
-  await relay.event(zappedPost);
-  await relay.event(zapReceiver);
+  await store.event(zapSender);
+  await store.event(zapReceipt);
+  await store.event(zappedPost);
+  await store.event(zapReceiver);
 
-  await hydrateEvents({
-    events: [zapReceipt],
-    store: relay,
-    kysely: db.kysely,
-  });
+  await hydrateEvents(db, [zapReceipt]);
 
   const expectedEvent: DittoEvent = {
     ...zapReceipt,

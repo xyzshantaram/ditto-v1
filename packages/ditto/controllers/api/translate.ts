@@ -8,15 +8,17 @@ import { MastodonTranslation } from '@/entities/MastodonTranslation.ts';
 import { getEvent } from '@/queries.ts';
 import { localeSchema } from '@/schema.ts';
 import { parseBody } from '@/utils/api.ts';
-import { renderStatus } from '@/views/mastodon/statuses.ts';
+import { StatusView } from '@/views/mastodon/StatusView.ts';
 
 const translateSchema = z.object({
   lang: localeSchema,
 });
 
 const translateController: AppController = async (c) => {
-  const result = translateSchema.safeParse(await parseBody(c.req.raw));
+  const { store, user } = c.var;
   const { signal } = c.req.raw;
+
+  const result = translateSchema.safeParse(await parseBody(c.req.raw));
 
   if (!result.success) {
     return c.json({ error: 'Bad request.', schema: result.error }, 422);
@@ -31,18 +33,20 @@ const translateController: AppController = async (c) => {
 
   const id = c.req.param('id');
 
-  const event = await getEvent(id, { signal });
+  const event = await getEvent(store, id, { signal });
   if (!event) {
     return c.json({ error: 'Record not found' }, 400);
   }
 
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
+  const viewerPubkey = await user?.signer.getPublicKey();
 
   if (lang.toLowerCase() === event?.language?.toLowerCase()) {
     return c.json({ error: 'Source and target languages are the same. No translation needed.' }, 400);
   }
 
-  const status = await renderStatus(event, { viewerPubkey });
+  const view = new StatusView(c.var);
+  const status = await view.render(event, { viewerPubkey });
+
   if (!status?.content) {
     return c.json({ error: 'Bad request.', schema: result.error }, 400);
   }

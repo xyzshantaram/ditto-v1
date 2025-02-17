@@ -1,12 +1,19 @@
+import { DittoConf } from '@ditto/conf';
 import { NSchema as n, NStore } from '@nostrify/nostrify';
 
-import { Conf } from '@/config.ts';
 import { configSchema } from '@/schemas/pleroma-api.ts';
 import { AdminSigner } from '@/signers/AdminSigner.ts';
 import { PleromaConfigDB } from '@/utils/PleromaConfigDB.ts';
 
-export async function getPleromaConfigs(store: NStore, signal?: AbortSignal): Promise<PleromaConfigDB> {
-  const { pubkey } = Conf;
+interface GetPleromaConfigOpts {
+  conf: DittoConf;
+  store: NStore;
+  signal?: AbortSignal;
+}
+
+export async function getPleromaConfigs(opts: GetPleromaConfigOpts): Promise<PleromaConfigDB> {
+  const { conf, store, signal } = opts;
+  const { pubkey } = conf;
 
   const [event] = await store.query([{
     kinds: [30078],
@@ -20,7 +27,7 @@ export async function getPleromaConfigs(store: NStore, signal?: AbortSignal): Pr
   }
 
   try {
-    const decrypted = await new AdminSigner().nip44.decrypt(Conf.pubkey, event.content);
+    const decrypted = await new AdminSigner(conf).nip44.decrypt(conf.pubkey, event.content);
     const configs = n.json().pipe(configSchema.array()).catch([]).parse(decrypted);
     return new PleromaConfigDB(configs);
   } catch (_e) {

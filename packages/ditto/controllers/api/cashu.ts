@@ -7,7 +7,6 @@ import { z } from 'zod';
 
 import { createEvent, parseBody } from '@/utils/api.ts';
 import { requireNip44Signer } from '@/middleware/requireSigner.ts';
-import { requireStore } from '@/middleware/storeMiddleware.ts';
 import { walletSchema } from '@/schema.ts';
 import { swapNutzapsMiddleware } from '@/middleware/swapNutzapsMiddleware.ts';
 import { isNostrId } from '@/utils.ts';

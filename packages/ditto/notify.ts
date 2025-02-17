@@ -1,19 +1,26 @@
 import { Semaphore } from '@core/asyncutil';
-
-import { pipelineEncounters } from '@/caches/pipelineEncounters.ts';
-import { Conf } from '@/config.ts';
-import * as pipeline from '@/pipeline.ts';
-import { Storages } from '@/storages.ts';
+import { DittoDatabase } from '@ditto/db';
+import { NStore } from '@nostrify/nostrify';
 import { logi } from '@soapbox/logi';
 
-const sem = new Semaphore(1);
+import type { DittoConf } from '@ditto/conf';
+import type { DittoPipeline } from '@/DittoPipeline.ts';
 
-export async function startNotify(): Promise<void> {
-  const { listen } = await Storages.database();
-  const store = await Storages.db();
+interface StartNotifyOpts {
+  db: DittoDatabase;
+  store: NStore;
+  conf: DittoConf;
+  pipeline: DittoPipeline;
+  concurrency?: number;
+}
 
-  listen('nostr_event', (id) => {
-    if (pipelineEncounters.has(id)) {
+export function startNotify(opts: StartNotifyOpts): void {
+  const { conf, db, store, pipeline, concurrency = 1 } = opts;
+
+  const sem = new Semaphore(concurrency);
+
+  db.listen('nostr_event', (id) => {
+    if (pipeline.encounters.has(id)) {
       logi({ level: 'debug', ns: 'ditto.notify', id, skipped: true });
       return;
     }
@@ -22,13 +29,13 @@ export async function startNotify(): Promise<void> {
 
     sem.lock(async () => {
       try {
-        const signal = AbortSignal.timeout(Conf.db.timeouts.default);
+        const signal = AbortSignal.timeout(conf.db.timeouts.default);
 
         const [event] = await store.query([{ ids: [id], limit: 1 }], { signal });
 
         if (event) {
           logi({ level: 'debug', ns: 'ditto.event', source: 'notify', id: event.id, kind: event.kind });
-          await pipeline.handleEvent(event, { source: 'notify', signal });
+          await pipeline.event(event, { source: 'notify', signal });
         }
       } catch {
         // Ignore

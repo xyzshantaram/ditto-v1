@@ -1,13 +1,16 @@
+import { DittoConf } from '@ditto/conf';
 import { JsonParseStream } from '@std/json/json-parse-stream';
 import { TextLineStream } from '@std/streams/text-line-stream';
 
 import { AdminSigner } from '../packages/ditto/signers/AdminSigner.ts';
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 import { type EventStub } from '../packages/ditto/utils/api.ts';
 import { nostrNow } from '../packages/ditto/utils.ts';
 
-const signer = new AdminSigner();
-const store = await Storages.db();
+const conf = new DittoConf(Deno.env);
+const signer = new AdminSigner(conf);
+const storages = new DittoStorages(conf);
+const store = await storages.db();
 
 const readable = Deno.stdin.readable
   .pipeThrough(new TextDecoderStream())

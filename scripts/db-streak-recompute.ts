@@ -1,9 +1,13 @@
-import { Conf } from '../packages/ditto/config.ts';
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoConf } from '@ditto/conf';
 
-const kysely = await Storages.kysely();
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
+
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
+
+const kysely = await storages.kysely();
 const statsQuery = kysely.selectFrom('author_stats').select('pubkey');
-const { streakWindow } = Conf;
+const { streakWindow } = conf;
 
 for await (const { pubkey } of statsQuery.stream(10)) {
   const eventsQuery = kysely

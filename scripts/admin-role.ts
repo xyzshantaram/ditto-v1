@@ -1,11 +1,14 @@
+import { DittoConf } from '@ditto/conf';
 import { NSchema } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
 import { AdminSigner } from '../packages/ditto/signers/AdminSigner.ts';
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 import { nostrNow } from '../packages/ditto/utils.ts';
 
-const store = await Storages.db();
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
+const store = await storages.db();
 
 const [pubkeyOrNpub, role] = Deno.args;
 const pubkey = pubkeyOrNpub.startsWith('npub1') ? nip19.decode(pubkeyOrNpub as `npub1${string}`).data : pubkeyOrNpub;
@@ -20,7 +23,7 @@ if (!['admin', 'user'].includes(role)) {
   Deno.exit(1);
 }
 
-const signer = new AdminSigner();
+const signer = new AdminSigner(conf);
 const admin = await signer.getPublicKey();
 
 const [existing] = await store.query([{

@@ -3,12 +3,15 @@
  * by looking them up on a list of relays.
  */
 
+import { DittoConf } from '@ditto/conf';
 import { NostrEvent, NRelay1, NSchema } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 
-const store = await Storages.db();
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
+const store = await storages.db();
 
 interface ImportEventsOpts {
   profilesOnly: boolean;

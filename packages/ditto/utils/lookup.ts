@@ -1,32 +1,49 @@
-import { NostrEvent, NSchema as n } from '@nostrify/nostrify';
+import { DittoConf } from '@ditto/conf';
+import { DittoTables } from '@ditto/db';
+import { NostrEvent, NSchema as n, NStore } from '@nostrify/nostrify';
+import { Kysely } from 'kysely';
 import { nip19 } from 'nostr-tools';
 import { match } from 'path-to-regexp';
 import tldts from 'tldts';
 
 import { getAuthor } from '@/queries.ts';
 import { bech32ToPubkey } from '@/utils.ts';
-import { nip05Cache } from '@/utils/nip05.ts';
+import { resolveNip05 } from '@/utils/nip05.ts';
+
+interface LookupAccountOpts {
+  conf: DittoConf;
+  store: NStore;
+  kysely: Kysely<DittoTables>;
+  signal?: AbortSignal;
+}
 
 /** Resolve a bech32 or NIP-05 identifier to an account. */
 export async function lookupAccount(
+  opts: LookupAccountOpts,
   value: string,
-  signal = AbortSignal.timeout(3000),
 ): Promise<NostrEvent | undefined> {
-  const pubkey = await lookupPubkey(value, signal);
+  const pubkey = await lookupPubkey(opts, value);
 
   if (pubkey) {
-    return getAuthor(pubkey);
+    return getAuthor(opts, pubkey);
   }
 }
 
+interface LookupPubkeyOpts {
+  conf: DittoConf;
+  store: NStore;
+  kysely: Kysely<DittoTables>;
+  signal?: AbortSignal;
+}
+
 /** Resolve a bech32 or NIP-05 identifier to a pubkey. */
-export async function lookupPubkey(value: string, signal?: AbortSignal): Promise<string | undefined> {
+export async function lookupPubkey(opts: LookupPubkeyOpts, value: string): Promise<string | undefined> {
   if (n.bech32().safeParse(value).success) {
     return bech32ToPubkey(value);
   }
 
   try {
-    const { pubkey } = await nip05Cache.fetch(value, { signal });
+    const { pubkey } = await resolveNip05(opts, value);
     return pubkey;
   } catch {
     return;

@@ -1,10 +1,9 @@
 import { AppController } from '@/app.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { Storages } from '@/storages.ts';
 import { createEvent } from '@/utils/api.ts';
-import { accountFromPubkey, renderAccount } from '@/views/mastodon/accounts.ts';
-import { renderStatus } from '@/views/mastodon/statuses.ts';
+import { AccountView } from '@/views/mastodon/AccountView.ts';
+import { StatusView } from '@/views/mastodon/StatusView.ts';
 
 /**
  * React to a status.
@@ -13,29 +12,30 @@ import { renderStatus } from '@/views/mastodon/statuses.ts';
 const reactionController: AppController = async (c) => {
   const id = c.req.param('id');
   const emoji = c.req.param('emoji');
-  const signer = c.get('signer')!;
+
+  const { store } = c.var;
 
   if (!/^\p{RGI_Emoji}$/v.test(emoji)) {
     return c.json({ error: 'Invalid emoji' }, 400);
   }
 
-  const store = await Storages.db();
   const [event] = await store.query([{ kinds: [1, 20], ids: [id], limit: 1 }]);
 
   if (!event) {
     return c.json({ error: 'Status not found' }, 404);
   }
 
-  await createEvent({
+  await createEvent(c.var, {
     kind: 7,
     content: emoji,
     created_at: Math.floor(Date.now() / 1000),
     tags: [['e', id], ['p', event.pubkey]],
-  }, c);
+  });
 
-  await hydrateEvents({ events: [event], store });
+  await hydrateEvents(c.var, [event]);
 
-  const status = await renderStatus(event, { viewerPubkey: await signer.getPublicKey() });
+  const view = new StatusView(c.var);
+  const status = await view.render(event);
 
   return c.json(status);
 };
@@ -47,9 +47,10 @@ const reactionController: AppController = async (c) => {
 const deleteReactionController: AppController = async (c) => {
   const id = c.req.param('id');
   const emoji = c.req.param('emoji');
-  const signer = c.get('signer')!;
-  const pubkey = await signer.getPublicKey();
-  const store = await Storages.db();
+
+  const { store, user } = c.var;
+
+  const pubkey = await user!.signer.getPublicKey();
 
   if (!/^\p{RGI_Emoji}$/v.test(emoji)) {
     return c.json({ error: 'Invalid emoji' }, 400);
@@ -71,14 +72,15 @@ const deleteReactionController: AppController = async (c) => {
     .filter((event) => event.content === emoji)
     .map((event) => ['e', event.id]);
 
-  await createEvent({
+  await createEvent(c.var, {
     kind: 5,
     content: '',
     created_at: Math.floor(Date.now() / 1000),
     tags,
-  }, c);
+  });
 
-  const status = renderStatus(event, { viewerPubkey: pubkey });
+  const view = new StatusView(c.var);
+  const status = await view.render(event);
 
   return c.json(status);
 };
@@ -89,9 +91,11 @@ const deleteReactionController: AppController = async (c) => {
  */
 const reactionsController: AppController = async (c) => {
   const id = c.req.param('id');
-  const store = await Storages.db();
-  const pubkey = await c.get('signer')?.getPublicKey();
   const emoji = c.req.param('emoji') as string | undefined;
+
+  const { store, user } = c.var;
+
+  const pubkey = await user?.signer.getPublicKey();
 
   if (typeof emoji === 'string' && !/^\p{RGI_Emoji}$/v.test(emoji)) {
     return c.json({ error: 'Invalid emoji' }, 400);
@@ -100,7 +104,7 @@ const reactionsController: AppController = async (c) => {
   const events = await store.query([{ kinds: [7], '#e': [id], limit: 100 }])
     .then((events) => events.filter(({ content }) => /^\p{RGI_Emoji}$/v.test(content)))
     .then((events) => events.filter((event) => !emoji || event.content === emoji))
-    .then((events) => hydrateEvents({ events, store }));
+    .then((events) => hydrateEvents(c.var, events));
 
   /** Events grouped by emoji. */
   const byEmoji = events.reduce((acc, event) => {
@@ -110,18 +114,16 @@ const reactionsController: AppController = async (c) => {
     return acc;
   }, {} as Record<string, DittoEvent[]>);
 
-  const results = await Promise.all(
-    Object.entries(byEmoji).map(async ([name, events]) => {
-      return {
-        name,
-        count: events.length,
-        me: pubkey && events.some((event) => event.pubkey === pubkey),
-        accounts: await Promise.all(
-          events.map((event) => event.author ? renderAccount(event.author) : accountFromPubkey(event.pubkey)),
-        ),
-      };
-    }),
-  );
+  const view = new AccountView(c.var);
+
+  const results = Object.entries(byEmoji).map(([name, events]) => {
+    return {
+      name,
+      count: events.length,
+      me: pubkey && events.some((event) => event.pubkey === pubkey),
+      accounts: events.map((event) => view.render(event.author, event.pubkey)),
+    };
+  });
 
   return c.json(results);
 };

@@ -2,7 +2,6 @@ import { NostrEvent, NostrFilter, NSchema as n } from '@nostrify/nostrify';
 import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
-import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { getAuthor } from '@/queries.ts';
 import { addTag } from '@/utils/tags.ts';
 import { createEvent, paginated, parseBody, updateAdminEvent } from '@/utils/api.ts';
@@ -14,9 +13,7 @@ import { screenshotsSchema } from '@/schemas/nostr.ts';
 import { booleanParamSchema, percentageSchema, wsUrlSchema } from '@/schema.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { renderNameRequest } from '@/views/ditto.ts';
-import { accountFromPubkey } from '@/views/mastodon/accounts.ts';
-import { renderAccount } from '@/views/mastodon/accounts.ts';
-import { Storages } from '@/storages.ts';
+import { AccountView } from '@/views/mastodon/AccountView.ts';
 import { updateListAdminEvent } from '@/utils/api.ts';
 
 const markerSchema = z.enum(['read', 'write']);
@@ -29,8 +26,7 @@ const relaySchema = z.object({
 type RelayEntity = z.infer<typeof relaySchema>;
 
 export const adminRelaysController: AppController = async (c) => {
-  const { conf } = c.var;
-  const store = await Storages.db();
+  const { conf, store } = c.var;
 
   const [event] = await store.query([
     { kinds: [10002], authors: [conf.pubkey], limit: 1 },
@@ -44,10 +40,10 @@ export const adminRelaysController: AppController = async (c) => {
 };
 
 export const adminSetRelaysController: AppController = async (c) => {
-  const store = await Storages.db();
+  const { conf, store } = c.var;
   const relays = relaySchema.array().parse(await c.req.json());
 
-  const event = await new AdminSigner().signEvent({
+  const event = await new AdminSigner(conf).signEvent({
     kind: 10002,
     tags: relays.map(({ url, marker }) => marker ? ['r', url, marker] : ['r', url]),
     content: '',
@@ -79,19 +75,18 @@ const nameRequestSchema = z.object({
 });
 
 export const nameRequestController: AppController = async (c) => {
-  const store = await Storages.db();
-  const signer = c.get('signer')!;
-  const pubkey = await signer.getPublicKey();
-  const { conf } = c.var;
-
+  const { conf, store, user } = c.var;
   const { name, reason } = nameRequestSchema.parse(await c.req.json());
 
+  const pubkey = await user!.signer.getPublicKey();
+
   const [existing] = await store.query([{ kinds: [3036], authors: [pubkey], '#r': [name], limit: 1 }]);
+
   if (existing) {
     return c.json({ error: 'Name request already exists' }, 400);
   }
 
-  const event = await createEvent({
+  const event = await createEvent(c.var, {
     kind: 3036,
     content: reason,
     tags: [
@@ -100,9 +95,9 @@ export const nameRequestController: AppController = async (c) => {
       ['l', name.split('@')[1], 'nip05.domain'],
       ['p', conf.pubkey],
     ],
-  }, c);
+  });
 
-  await hydrateEvents({ events: [event], store: await Storages.db() });
+  await hydrateEvents(c.var, [event]);
 
   const nameRequest = await renderNameRequest(event);
   return c.json(nameRequest);
@@ -114,10 +109,9 @@ const nameRequestsSchema = z.object({
 });
 
 export const nameRequestsController: AppController = async (c) => {
-  const { conf } = c.var;
-  const store = await Storages.db();
-  const signer = c.get('signer')!;
-  const pubkey = await signer.getPublicKey();
+  const { conf, store, user } = c.var;
+
+  const pubkey = await user!.signer.getPublicKey();
 
   const params = c.get('pagination');
   const { approved, rejected } = nameRequestsSchema.parse(c.req.query());
@@ -151,8 +145,9 @@ export const nameRequestsController: AppController = async (c) => {
     return c.json([]);
   }
 
-  const events = await store.query([{ kinds: [3036], ids: [...ids], authors: [pubkey] }])
-    .then((events) => hydrateEvents({ store, events: events, signal: c.req.raw.signal }));
+  const events = await store
+    .query([{ kinds: [3036], ids: [...ids], authors: [pubkey] }])
+    .then((events) => hydrateEvents(c.var, events));
 
   const nameRequests = await Promise.all(
     events.map((event) => renderNameRequest(event)),
@@ -170,10 +165,10 @@ const zapSplitSchema = z.record(
 );
 
 export const updateZapSplitsController: AppController = async (c) => {
-  const { conf } = c.var;
+  const { conf, store } = c.var;
+
   const body = await parseBody(c.req.raw);
   const result = zapSplitSchema.safeParse(body);
-  const store = c.get('store');
 
   if (!result.success) {
     return c.json({ error: result.error }, 400);
@@ -192,15 +187,15 @@ export const updateZapSplitsController: AppController = async (c) => {
   }
 
   await updateListAdminEvent(
+    c.var,
     { kinds: [30078], authors: [conf.pubkey], '#d': ['pub.ditto.zapSplits'], limit: 1 },
     (tags) =>
       pubkeys.reduce((accumulator, pubkey) => {
         return addTag(accumulator, ['p', pubkey, data[pubkey].weight.toString(), data[pubkey].message]);
       }, tags),
-    c,
   );
 
-  return c.json(200);
+  return c.newResponse(null, 200);
 };
 
 const deleteZapSplitSchema = z.array(n.id()).min(1);
@@ -216,6 +211,7 @@ export const deleteZapSplitsController: AppController = async (c) => {
   }
 
   const dittoZapSplit = await getZapSplits(store, conf.pubkey);
+
   if (!dittoZapSplit) {
     return c.json({ error: 'Zap split not activated, restart the server.' }, 404);
   }
@@ -223,32 +219,32 @@ export const deleteZapSplitsController: AppController = async (c) => {
   const { data } = result;
 
   await updateListAdminEvent(
+    c.var,
     { kinds: [30078], authors: [conf.pubkey], '#d': ['pub.ditto.zapSplits'], limit: 1 },
     (tags) =>
       data.reduce((accumulator, currentValue) => {
         return deleteTag(accumulator, ['p', currentValue]);
       }, tags),
-    c,
   );
 
-  return c.json(200);
+  return c.newResponse(null, 204);
 };
 
 export const getZapSplitsController: AppController = async (c) => {
-  const { conf } = c.var;
-  const store = c.get('store');
+  const { conf, store } = c.var;
 
   const dittoZapSplit: DittoZapSplits | undefined = await getZapSplits(store, conf.pubkey) ?? {};
+
   if (!dittoZapSplit) {
     return c.json({ error: 'Zap split not activated, restart the server.' }, 404);
   }
 
   const pubkeys = Object.keys(dittoZapSplit);
+  const view = new AccountView(c.var);
 
   const zapSplits = await Promise.all(pubkeys.map(async (pubkey) => {
-    const author = await getAuthor(pubkey);
-
-    const account = author ? renderAccount(author) : accountFromPubkey(pubkey);
+    const author = await getAuthor(c.var, pubkey);
+    const account = view.render(author, pubkey);
 
     return {
       account,
@@ -261,11 +257,12 @@ export const getZapSplitsController: AppController = async (c) => {
 };
 
 export const statusZapSplitsController: AppController = async (c) => {
-  const store = c.get('store');
+  const { store, signal } = c.var;
+
   const id = c.req.param('id');
-  const { signal } = c.req.raw;
 
   const [event] = await store.query([{ kinds: [1, 20], ids: [id], limit: 1 }], { signal });
+
   if (!event) {
     return c.json({ error: 'Event not found' }, 404);
   }
@@ -275,14 +272,15 @@ export const statusZapSplitsController: AppController = async (c) => {
   const pubkeys = zapsTag.map((name) => name[1]);
 
   const users = await store.query([{ authors: pubkeys, kinds: [0], limit: pubkeys.length }], { signal });
-  await hydrateEvents({ events: users, store, signal });
+  await hydrateEvents(c.var, users);
 
-  const zapSplits = (await Promise.all(pubkeys.map((pubkey) => {
-    const author = (users.find((event) => event.pubkey === pubkey) as DittoEvent | undefined)?.author;
-    const account = author ? renderAccount(author) : accountFromPubkey(pubkey);
+  const view = new AccountView(c.var);
+
+  const zapSplits = pubkeys.map((pubkey) => {
+    const author = users.find((event) => event.pubkey === pubkey)?.author;
+    const account = view.render(author, pubkey);
 
     const weight = percentageSchema.catch(0).parse(zapsTag.find((name) => name[1] === pubkey)![3]) ?? 0;
-
     const message = zapsTag.find((name) => name[1] === pubkey)![4] ?? '';
 
     return {
@@ -290,7 +288,7 @@ export const statusZapSplitsController: AppController = async (c) => {
       message,
       weight,
     };
-  }))).filter((zapSplit) => zapSplit.weight > 0);
+  }).filter((zapSplit) => zapSplit.weight > 0);
 
   return c.json(zapSplits, 200);
 };
@@ -317,9 +315,10 @@ export const updateInstanceController: AppController = async (c) => {
     return c.json(result.error, 422);
   }
 
-  const meta = await getInstanceMetadata(await Storages.db(), c.req.raw.signal);
+  const meta = await getInstanceMetadata(c.var);
 
   await updateAdminEvent(
+    c.var,
     { kinds: [0], authors: [pubkey], limit: 1 },
     (_) => {
       const {
@@ -343,8 +342,7 @@ export const updateInstanceController: AppController = async (c) => {
         tags: [],
       };
     },
-    c,
   );
 
-  return c.json(204);
+  return c.newResponse(null, 204);
 };

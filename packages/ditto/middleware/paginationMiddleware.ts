@@ -1,9 +1,10 @@
 import { AppMiddleware } from '@/app.ts';
 import { paginationSchema } from '@/schemas/pagination.ts';
-import { Storages } from '@/storages.ts';
 
 /** Fixes compatibility with Mastodon apps by that don't use `Link` headers. */
 export const paginationMiddleware: AppMiddleware = async (c, next) => {
+  const { store } = c.var;
+
   const pagination = paginationSchema.parse(c.req.query());
 
   const {
@@ -20,8 +21,6 @@ export const paginationMiddleware: AppMiddleware = async (c, next) => {
     if (minId) ids.push(minId);
 
     if (ids.length) {
-      const store = await Storages.db();
-
       const events = await store.query(
         [{ ids, limit: ids.length }],
         { signal: c.req.raw.signal },

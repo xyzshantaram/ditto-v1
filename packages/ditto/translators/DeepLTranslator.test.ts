@@ -1,6 +1,6 @@
+import { DittoConf } from '@ditto/conf';
 import { assert, assertEquals } from '@std/assert';
 
-import { Conf } from '@/config.ts';
 import { DeepLTranslator } from '@/translators/DeepLTranslator.ts';
 import { getLanguage } from '@/test.ts';
 
@@ -8,7 +8,7 @@ const {
   deeplBaseUrl: baseUrl,
   deeplApiKey: apiKey,
   translationProvider,
-} = Conf;
+} = new DittoConf(Deno.env);
 
 const deepl = 'deepl';
 

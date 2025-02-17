@@ -2,41 +2,15 @@ import { HTTPException } from '@hono/hono/http-exception';
 import { NostrEvent } from '@nostrify/nostrify';
 
 import { type AppContext, type AppMiddleware } from '@/app.ts';
-import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
-import { Storages } from '@/storages.ts';
 import { localRequest } from '@/utils/api.ts';
-import {
-  buildAuthEventTemplate,
-  parseAuthRequest,
-  type ParseAuthRequestOpts,
-  validateAuthEvent,
-} from '@/utils/nip98.ts';
-
-/**
- * NIP-98 auth.
- * https://github.com/nostr-protocol/nips/blob/master/98.md
- */
-function auth98Middleware(opts: ParseAuthRequestOpts = {}): AppMiddleware {
-  return async (c, next) => {
-    const req = localRequest(c);
-    const result = await parseAuthRequest(req, opts);
-
-    if (result.success) {
-      c.set('signer', new ReadOnlySigner(result.data.pubkey));
-      c.set('proof', result.data);
-    }
-
-    await next();
-  };
-}
+import { buildAuthEventTemplate, type ParseAuthRequestOpts, validateAuthEvent } from '@/utils/nip98.ts';
 
 type UserRole = 'user' | 'admin';
 
 /** Require the user to prove their role before invoking the controller. */
 function requireRole(role: UserRole, opts?: ParseAuthRequestOpts): AppMiddleware {
   return withProof(async (c, proof, next) => {
-    const { conf } = c.var;
-    const store = await Storages.db();
+    const { conf, store } = c.var;
 
     const [user] = await store.query([{
       kinds: [30382],
@@ -71,22 +45,8 @@ function withProof(
   opts?: ParseAuthRequestOpts,
 ): AppMiddleware {
   return async (c, next) => {
-    const signer = c.get('signer');
-    const pubkey = await signer?.getPublicKey();
-    const proof = c.get('proof') || await obtainProof(c, opts);
-
-    // Prevent people from accidentally using the wrong account. This has no other security implications.
-    if (proof && pubkey && pubkey !== proof.pubkey) {
-      throw new HTTPException(401, { message: 'Pubkey mismatch' });
-    }
-
+    const proof = await obtainProof(c, opts);
     if (proof) {
-      c.set('proof', proof);
-
-      if (!signer) {
-        c.set('signer', new ReadOnlySigner(proof.pubkey));
-      }
-
       await handler(c, proof, next);
     } else {
       throw new HTTPException(401, { message: 'No proof' });
@@ -96,8 +56,9 @@ function withProof(
 
 /** Get the proof over Nostr Connect. */
 async function obtainProof(c: AppContext, opts?: ParseAuthRequestOpts) {
-  const signer = c.get('signer');
-  if (!signer) {
+  const { user } = c.var;
+
+  if (!user) {
     throw new HTTPException(401, {
       res: c.json({ error: 'No way to sign Nostr event' }, 401),
     });
@@ -105,7 +66,7 @@ async function obtainProof(c: AppContext, opts?: ParseAuthRequestOpts) {
 
   const req = localRequest(c);
   const reqEvent = await buildAuthEventTemplate(req, opts);
-  const resEvent = await signer.signEvent(reqEvent);
+  const resEvent = await user.signer.signEvent(reqEvent);
   const result = await validateAuthEvent(req, resEvent, opts);
 
   if (result.success) {
@@ -113,4 +74,4 @@ async function obtainProof(c: AppContext, opts?: ParseAuthRequestOpts) {
   }
 }
 
-export { auth98Middleware, requireProof, requireRole };
+export { requireProof, requireRole };

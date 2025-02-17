@@ -1,12 +1,13 @@
 import { type DittoConf } from '@ditto/conf';
+import { DittoTables } from '@ditto/db';
 import { MiddlewareHandler } from '@hono/hono';
 import { HTTPException } from '@hono/hono/http-exception';
-import { NostrSigner, NSecSigner } from '@nostrify/nostrify';
+import { NostrSigner, NRelay, NSecSigner } from '@nostrify/nostrify';
+import { Kysely } from 'kysely';
 import { nip19 } from 'nostr-tools';
 
 import { ConnectSigner } from '@/signers/ConnectSigner.ts';
 import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
-import { Storages } from '@/storages.ts';
 import { aesDecrypt } from '@/utils/aes.ts';
 import { getTokenHash } from '@/utils/auth.ts';
 
@@ -14,11 +15,13 @@ import { getTokenHash } from '@/utils/auth.ts';
 const BEARER_REGEX = new RegExp(`^Bearer (${nip19.BECH32_REGEX.source})$`);
 
 /** Make a `signer` object available to all controllers, or unset if the user isn't logged in. */
-export const signerMiddleware: MiddlewareHandler<{ Variables: { signer: NostrSigner; conf: DittoConf } }> = async (
+export const signerMiddleware: MiddlewareHandler<
+  { Variables: { signer: NostrSigner; conf: DittoConf; kysely: Kysely<DittoTables>; pubsub: NRelay } }
+> = async (
   c,
   next,
 ) => {
-  const { conf } = c.var;
+  const { conf, kysely } = c.var;
   const header = c.req.header('authorization');
   const match = header?.match(BEARER_REGEX);
 
@@ -27,7 +30,6 @@ export const signerMiddleware: MiddlewareHandler<{ Variables: { signer: NostrSig
 
     if (bech32.startsWith('token1')) {
       try {
-        const kysely = await Storages.kysely();
         const tokenHash = await getTokenHash(bech32 as `token1${string}`);
 
         const { pubkey: userPubkey, bunker_pubkey: bunkerPubkey, nip46_sk_enc, nip46_relays } = await kysely
@@ -45,6 +47,7 @@ export const signerMiddleware: MiddlewareHandler<{ Variables: { signer: NostrSig
             userPubkey,
             signer: new NSecSigner(nep46Seckey),
             relays: nip46_relays,
+            relay: c.var.pubsub,
           }),
         );
       } catch {

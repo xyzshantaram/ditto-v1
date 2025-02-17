@@ -1,9 +1,12 @@
+import { DittoConf } from '@ditto/conf';
 import { NostrEvent } from '@nostrify/nostrify';
 
-import { Storages } from '../packages/ditto/storages.ts';
+import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 import { EventsDB } from '../packages/ditto/storages/EventsDB.ts';
 
-const kysely = await Storages.kysely();
+const conf = new DittoConf(Deno.env);
+const storages = new DittoStorages(conf);
+const kysely = await storages.kysely();
 
 const query = kysely
   .selectFrom('nostr_events')

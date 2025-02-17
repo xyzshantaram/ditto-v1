@@ -4,11 +4,10 @@ import { z } from 'zod';
 
 import { type AppController } from '@/app.ts';
 import { booleanParamSchema } from '@/schema.ts';
-import { Storages } from '@/storages.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { createAdminEvent, paginated, parseBody, updateEventInfo, updateUser } from '@/utils/api.ts';
 import { renderNameRequest } from '@/views/ditto.ts';
-import { renderAdminAccount, renderAdminAccountFromPubkey } from '@/views/mastodon/admin-accounts.ts';
+import { AdminAccountView } from '@/views/mastodon/AdminAccountView.ts';
 import { errorJson } from '@/utils/log.ts';
 
 const adminAccountQuerySchema = z.object({
@@ -29,10 +28,8 @@ const adminAccountQuerySchema = z.object({
 });
 
 const adminAccountsController: AppController = async (c) => {
-  const { conf } = c.var;
-  const store = await Storages.db();
-  const params = c.get('pagination');
-  const { signal } = c.req.raw;
+  const { conf, store, pagination, signal } = c.var;
+
   const {
     local,
     pending,
@@ -43,13 +40,15 @@ const adminAccountsController: AppController = async (c) => {
     staff,
   } = adminAccountQuerySchema.parse(c.req.query());
 
+  const view = new AdminAccountView(c.var);
+
   if (pending) {
     if (disabled || silenced || suspended || sensitized) {
       return c.json([]);
     }
 
     const orig = await store.query(
-      [{ kinds: [30383], authors: [conf.pubkey], '#k': ['3036'], '#n': ['pending'], ...params }],
+      [{ kinds: [30383], authors: [conf.pubkey], '#k': ['3036'], '#n': ['pending'], ...pagination }],
       { signal },
     );
 
@@ -59,8 +58,9 @@ const adminAccountsController: AppController = async (c) => {
         .filter((id): id is string => !!id),
     );
 
-    const events = await store.query([{ kinds: [3036], ids: [...ids] }])
-      .then((events) => hydrateEvents({ store, events, signal }));
+    const events = await store
+      .query([{ kinds: [3036], ids: [...ids] }])
+      .then((events) => hydrateEvents(c.var, events));
 
     const nameRequests = await Promise.all(events.map(renderNameRequest));
     return paginated(c, orig, nameRequests);
@@ -86,7 +86,10 @@ const adminAccountsController: AppController = async (c) => {
       n.push('moderator');
     }
 
-    const events = await store.query([{ kinds: [30382], authors: [conf.pubkey], '#n': n, ...params }], { signal });
+    const events = await store.query(
+      [{ kinds: [30382], authors: [conf.pubkey], '#n': n, ...pagination }],
+      { signal },
+    );
 
     const pubkeys = new Set<string>(
       events
@@ -94,29 +97,30 @@ const adminAccountsController: AppController = async (c) => {
         .filter((pubkey): pubkey is string => !!pubkey),
     );
 
-    const authors = await store.query([{ kinds: [0], authors: [...pubkeys] }])
-      .then((events) => hydrateEvents({ store, events, signal }));
+    const authors = await store
+      .query([{ kinds: [0], authors: [...pubkeys] }])
+      .then((events) => hydrateEvents(c.var, events));
 
-    const accounts = await Promise.all(
-      [...pubkeys].map((pubkey) => {
-        const author = authors.find((e) => e.pubkey === pubkey);
-        return author ? renderAdminAccount(author) : renderAdminAccountFromPubkey(pubkey);
-      }),
-    );
+    const accounts = [...pubkeys].map((pubkey) => {
+      const author = authors.find((e) => e.pubkey === pubkey);
+      return view.render(author, pubkey);
+    });
 
     return paginated(c, events, accounts);
   }
 
-  const filter: NostrFilter = { kinds: [0], ...params };
+  const filter: NostrFilter = { kinds: [0], ...pagination };
 
   if (local) {
     filter.search = `domain:${conf.url.host}`;
   }
 
-  const events = await store.query([filter], { signal })
-    .then((events) => hydrateEvents({ store, events, signal }));
+  const events = await store
+    .query([filter], { signal })
+    .then((events) => hydrateEvents(c.var, events));
 
-  const accounts = await Promise.all(events.map(renderAdminAccount));
+  const accounts = events.map((event) => view.render(event, event.pubkey));
+
   return paginated(c, events, accounts);
 };
 
@@ -125,11 +129,12 @@ const adminAccountActionSchema = z.object({
 });
 
 const adminActionController: AppController = async (c) => {
-  const { conf } = c.var;
-  const body = await parseBody(c.req.raw);
-  const store = await Storages.db();
-  const result = adminAccountActionSchema.safeParse(body);
   const authorId = c.req.param('id');
+
+  const { conf, store } = c.var;
+
+  const body = await parseBody(c.req.raw);
+  const result = adminAccountActionSchema.safeParse(body);
 
   if (!result.success) {
     return c.json({ error: 'This action is not allowed' }, 403);
@@ -151,46 +156,52 @@ const adminActionController: AppController = async (c) => {
   if (data.type === 'suspend') {
     n.disabled = true;
     n.suspended = true;
-    store.remove([{ authors: [authorId] }]).catch((e: unknown) => {
+
+    store.remove!([{ authors: [authorId] }]).catch((e: unknown) => {
       logi({ level: 'error', ns: 'ditto.api.admin.account.action', type: data.type, error: errorJson(e) });
     });
   }
   if (data.type === 'revoke_name') {
     n.revoke_name = true;
-    store.remove([{ kinds: [30360], authors: [conf.pubkey], '#p': [authorId] }]).catch((e: unknown) => {
+
+    store.remove!([{ kinds: [30360], authors: [conf.pubkey], '#p': [authorId] }]).catch((e: unknown) => {
       logi({ level: 'error', ns: 'ditto.api.admin.account.action', type: data.type, error: errorJson(e) });
     });
   }
 
-  await updateUser(authorId, n, c);
+  await updateUser(c.var, authorId, n);
 
   return c.json({}, 200);
 };
 
 const adminApproveController: AppController = async (c) => {
-  const { conf } = c.var;
   const eventId = c.req.param('id');
-  const store = await Storages.db();
+
+  const { conf, store } = c.var;
 
   const [event] = await store.query([{ kinds: [3036], ids: [eventId] }]);
+
   if (!event) {
     return c.json({ error: 'Event not found' }, 404);
   }
 
   const r = event.tags.find(([name]) => name === 'r')?.[1];
+
   if (!r) {
     return c.json({ error: 'NIP-05 not found' }, 404);
   }
+
   if (!z.string().email().safeParse(r).success) {
     return c.json({ error: 'Invalid NIP-05' }, 400);
   }
 
   const [existing] = await store.query([{ kinds: [30360], authors: [conf.pubkey], '#d': [r], limit: 1 }]);
+
   if (existing) {
     return c.json({ error: 'NIP-05 already granted to another user' }, 400);
   }
 
-  await createAdminEvent({
+  await createAdminEvent(c.var, {
     kind: 30360,
     tags: [
       ['d', r],
@@ -199,10 +210,10 @@ const adminApproveController: AppController = async (c) => {
       ['p', event.pubkey],
       ['e', event.id],
     ],
-  }, c);
+  });
 
-  await updateEventInfo(eventId, { pending: false, approved: true, rejected: false }, c);
-  await hydrateEvents({ events: [event], store });
+  await updateEventInfo(c.var, eventId, { pending: false, approved: true, rejected: false });
+  await hydrateEvents(c.var, [event]);
 
   const nameRequest = await renderNameRequest(event);
   return c.json(nameRequest);
@@ -210,17 +221,20 @@ const adminApproveController: AppController = async (c) => {
 
 const adminRejectController: AppController = async (c) => {
   const eventId = c.req.param('id');
-  const store = await Storages.db();
+
+  const { store } = c.var;
 
   const [event] = await store.query([{ kinds: [3036], ids: [eventId] }]);
+
   if (!event) {
     return c.json({ error: 'Event not found' }, 404);
   }
 
-  await updateEventInfo(eventId, { pending: false, approved: false, rejected: true }, c);
-  await hydrateEvents({ events: [event], store });
+  await updateEventInfo(c.var, eventId, { pending: false, approved: false, rejected: true });
+  await hydrateEvents(c.var, [event]);
 
   const nameRequest = await renderNameRequest(event);
   return c.json(nameRequest);
 };
+
 export { adminAccountsController, adminActionController, adminApproveController, adminRejectController };

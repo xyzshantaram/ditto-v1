@@ -1,10 +1,10 @@
+import { DittoConf } from '@ditto/conf';
 import { DittoDB } from '@ditto/db';
 import ISO6391, { LanguageCode } from 'iso-639-1';
 import lande from 'lande';
 import { NostrEvent } from '@nostrify/nostrify';
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import { finalizeEvent, generateSecretKey, nip19 } from 'nostr-tools';
 
-import { Conf } from '@/config.ts';
 import { EventsDB } from '@/storages/EventsDB.ts';
 import { purifyEvent } from '@/utils/purify.ts';
 import { sql } from 'kysely';
@@ -35,19 +35,21 @@ export function genEvent(t: Partial<NostrEvent> = {}, sk: Uint8Array = generateS
 }
 
 /** Create a database for testing. It uses `DATABASE_URL`, or creates an in-memory database by default. */
-export async function createTestDB(opts?: { pure?: boolean }) {
-  const { kysely } = DittoDB.create(Conf.databaseUrl, { poolSize: 1 });
+export async function createTestDB(opts?: { conf?: DittoConf; pure?: boolean }) {
+  const conf = opts?.conf ?? testConf();
+  const { kysely } = DittoDB.create(conf.databaseUrl, { poolSize: 1 });
 
   await DittoDB.migrate(kysely);
 
   const store = new EventsDB({
     kysely,
-    timeout: Conf.db.timeouts.default,
-    pubkey: Conf.pubkey,
+    timeout: conf.db.timeouts.default,
+    pubkey: conf.pubkey,
     pure: opts?.pure ?? false,
   });
 
   return {
+    conf,
     store,
     kysely,
     [Symbol.asyncDispose]: async () => {
@@ -63,6 +65,15 @@ export async function createTestDB(opts?: { pure?: boolean }) {
       await kysely.destroy();
     },
   };
+}
+
+export function testConf(): DittoConf {
+  const env = new Map<string, string>();
+
+  env.set('DITTO_NSEC', nip19.nsecEncode(generateSecretKey()));
+  env.set('LOCAL_DOMAIN', 'https://ditto.test');
+
+  return new DittoConf(env);
 }
 
 export function sleep(ms: number): Promise<void> {
