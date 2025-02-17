@@ -3,7 +3,7 @@ import { ApplicationServer, PushMessageOptions, PushSubscriber, PushSubscription
 import { type NStore } from '@nostrify/nostrify';
 import { logi } from '@soapbox/logi';
 
-import { getInstanceMetadata } from '@/utils/instance.ts';
+import { getInstanceMetadata } from '../utils/instance.ts';
 
 interface DittoPushOpts {
   conf: DittoConf;

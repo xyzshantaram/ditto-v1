@@ -4,10 +4,10 @@ import { logi } from '@soapbox/logi';
 import { Kysely } from 'kysely';
 
 import { AppMiddleware } from '@/app.ts';
-import { getPathParams, MetadataEntities } from '@/utils/og-metadata.ts';
-import { getInstanceMetadata } from '@/utils/instance.ts';
-import { errorJson } from '@/utils/log.ts';
-import { lookupPubkey } from '@/utils/lookup.ts';
+import { getPathParams, MetadataEntities } from '../../utils/og-metadata.ts';
+import { getInstanceMetadata } from '../../utils/instance.ts';
+import { errorJson } from '../../utils/log.ts';
+import { lookupPubkey } from '../../utils/lookup.ts';
 import { renderMetadata } from '@/views/meta.ts';
 import { getAuthor, getEvent } from '@/queries.ts';
 import { StatusView } from '@/views/mastodon/StatusView.ts';

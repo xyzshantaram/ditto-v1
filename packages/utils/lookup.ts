@@ -8,7 +8,7 @@ import tldts from 'tldts';
 
 import { getAuthor } from '@/queries.ts';
 import { bech32ToPubkey } from '@/utils.ts';
-import { resolveNip05 } from '@/utils/nip05.ts';
+import { resolveNip05 } from './nip05.ts';
 
 interface LookupAccountOpts {
   conf: DittoConf;

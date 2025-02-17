@@ -4,7 +4,7 @@ import { accountFromPubkey, renderAccount } from '@/views/mastodon/accounts.ts';
 import { nostrDate } from '@/utils.ts';
 import { renderAdminAccount, renderAdminAccountFromPubkey } from '@/views/mastodon/admin-accounts.ts';
 import { renderStatus } from '@/views/mastodon/statuses.ts';
-import { getTagSet } from '@/utils/tags.ts';
+import { getTagSet } from '../../../utils/tags.ts';
 
 /** Expects a `reportEvent` of kind 1984 and a `profile` of kind 0 of the person being reported */
 async function renderReport(event: DittoEvent) {

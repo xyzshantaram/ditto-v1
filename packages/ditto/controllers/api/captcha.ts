@@ -3,7 +3,7 @@ import TTLCache from '@isaacs/ttlcache';
 import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
-import { updateUser } from '@/utils/api.ts';
+import { updateUser } from '../../../utils/api.ts';
 
 interface Point {
   x: number;

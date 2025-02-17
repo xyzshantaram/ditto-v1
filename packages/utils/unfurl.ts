@@ -7,7 +7,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import { unfurl } from 'unfurl.js';
 
 import { PreviewCard } from '@/entities/PreviewCard.ts';
-import { errorJson } from '@/utils/log.ts';
+import { errorJson } from './log.ts';
 
 async function unfurlCard(conf: DittoConf, url: string, signal: AbortSignal): Promise<PreviewCard | null> {
   try {

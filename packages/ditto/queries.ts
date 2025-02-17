@@ -6,7 +6,7 @@ import { Kysely } from 'kysely';
 import { type DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { fallbackAuthor } from '@/utils.ts';
-import { findReplyTag, getTagSet } from '@/utils/tags.ts';
+import { findReplyTag, getTagSet } from '../utils/tags.ts';
 
 interface GetEventOpts {
   conf: DittoConf;

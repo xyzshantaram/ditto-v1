@@ -4,13 +4,13 @@ import { bytesToString, stringToBytes } from '@scure/base';
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import { z } from 'zod';
 
-import { createEvent, parseBody } from '@/utils/api.ts';
+import { createEvent, parseBody } from '../../../utils/api.ts';
 import { requireNip44Signer } from '@/middleware/requireSigner.ts';
 import { walletSchema } from '@/schema.ts';
 import { swapNutzapsMiddleware } from '@/middleware/swapNutzapsMiddleware.ts';
 import { isNostrId } from '@/utils.ts';
 import { logi } from '@soapbox/logi';
-import { errorJson } from '@/utils/log.ts';
+import { errorJson } from '../../../utils/log.ts';
 
 type Wallet = z.infer<typeof walletSchema>;
 

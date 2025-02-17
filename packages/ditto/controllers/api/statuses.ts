@@ -9,15 +9,22 @@ import { type AppController } from '@/app.ts';
 import { DittoUpload, dittoUploads } from '@/DittoUploads.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { getAncestors, getAuthor, getDescendants, getEvent } from '@/queries.ts';
-import { addTag, deleteTag } from '@/utils/tags.ts';
-import { asyncReplaceAll } from '@/utils/text.ts';
-import { lookupPubkey } from '@/utils/lookup.ts';
+import { addTag, deleteTag } from '../../../utils/tags.ts';
+import { asyncReplaceAll } from '../../../utils/text.ts';
+import { lookupPubkey } from '../../../utils/lookup.ts';
 import { languageSchema } from '@/schema.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { assertAuthenticated, createEvent, paginated, paginatedList, parseBody, updateListEvent } from '@/utils/api.ts';
-import { getInvoice, getLnurl } from '@/utils/lnurl.ts';
-import { purifyEvent } from '@/utils/purify.ts';
-import { getZapSplits } from '@/utils/zap-split.ts';
+import {
+  assertAuthenticated,
+  createEvent,
+  paginated,
+  paginatedList,
+  parseBody,
+  updateListEvent,
+} from '../../../utils/api.ts';
+import { getInvoice, getLnurl } from '../../../utils/lnurl.ts';
+import { purifyEvent } from '../../../utils/purify.ts';
+import { getZapSplits } from '../../../utils/zap-split.ts';
 import { renderEventAccounts } from '@/views.ts';
 import { AccountView } from '@/views/mastodon/AccountView.ts';
 import { StatusView } from '@/views/mastodon/StatusView.ts';

@@ -1,7 +1,7 @@
 import denoJson from 'deno.json' with { type: 'json' };
 
 import { AppController } from '@/app.ts';
-import { getInstanceMetadata } from '@/utils/instance.ts';
+import { getInstanceMetadata } from '../../../utils/instance.ts';
 
 const relayInfoController: AppController = async (c) => {
   const { conf } = c.var;

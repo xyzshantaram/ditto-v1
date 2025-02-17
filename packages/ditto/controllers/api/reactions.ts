@@ -1,7 +1,7 @@
 import { AppController } from '@/app.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { createEvent } from '@/utils/api.ts';
+import { createEvent } from '../../../utils/api.ts';
 import { AccountView } from '@/views/mastodon/AccountView.ts';
 import { StatusView } from '@/views/mastodon/StatusView.ts';
 

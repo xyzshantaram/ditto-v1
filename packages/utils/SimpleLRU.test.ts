@@ -1,4 +1,4 @@
-import { SimpleLRU } from '@/utils/SimpleLRU.ts';
+import { SimpleLRU } from './SimpleLRU.ts';
 import { assertEquals, assertRejects } from '@std/assert';
 
 Deno.test("SimpleLRU doesn't repeat failed calls", async () => {

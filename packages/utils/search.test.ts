@@ -2,7 +2,7 @@ import { assertEquals } from '@std/assert';
 import { sql } from 'kysely';
 
 import { createTestDB } from '@/test.ts';
-import { getPubkeysBySearch } from '@/utils/search.ts';
+import { getPubkeysBySearch } from './search.ts';
 
 Deno.test('fuzzy search works', async () => {
   await using db = await createTestDB();

@@ -2,7 +2,7 @@ import { ErrorHandler } from '@hono/hono';
 import { HTTPException } from '@hono/hono/http-exception';
 import { logi } from '@soapbox/logi';
 
-import { errorJson } from '@/utils/log.ts';
+import { errorJson } from '../../utils/log.ts';
 
 export const errorHandler: ErrorHandler = (err, c) => {
   c.header('Cache-Control', 'no-store');

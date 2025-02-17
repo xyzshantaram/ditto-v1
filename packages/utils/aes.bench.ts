@@ -1,6 +1,6 @@
 import { generateSecretKey } from 'nostr-tools';
 
-import { aesDecrypt, aesEncrypt } from '@/utils/aes.ts';
+import { aesDecrypt, aesEncrypt } from './aes.ts';
 
 Deno.bench('aesEncrypt', async (b) => {
   const sk = generateSecretKey();

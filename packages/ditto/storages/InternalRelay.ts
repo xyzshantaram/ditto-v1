@@ -13,7 +13,7 @@ import { matchFilter } from 'nostr-tools';
 import { Gauge } from 'prom-client';
 
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
-import { purifyEvent } from '@/utils/purify.ts';
+import { purifyEvent } from '../../utils/purify.ts';
 
 interface InternalRelayOpts {
   gauge?: Gauge;

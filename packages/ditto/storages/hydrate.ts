@@ -8,9 +8,9 @@ import { z } from 'zod';
 
 import { type DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { fallbackAuthor } from '@/utils.ts';
-import { findQuoteTag } from '@/utils/tags.ts';
-import { findQuoteInContent } from '@/utils/note.ts';
-import { getAmount } from '@/utils/bolt11.ts';
+import { findQuoteTag } from '../../utils/tags.ts';
+import { findQuoteInContent } from '../../utils/note.ts';
+import { getAmount } from '../../utils/bolt11.ts';
 
 interface HydrateOpts {
   conf: DittoConf;

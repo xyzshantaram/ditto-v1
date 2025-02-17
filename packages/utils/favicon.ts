@@ -8,7 +8,7 @@ import { Kysely } from 'kysely';
 import tldts from 'tldts';
 
 import { nostrNow } from '@/utils.ts';
-import { SimpleLRU } from '@/utils/SimpleLRU.ts';
+import { SimpleLRU } from './SimpleLRU.ts';
 
 let faviconCache: SimpleLRU<string, URL> | undefined;
 

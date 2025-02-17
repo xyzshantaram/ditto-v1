@@ -5,10 +5,10 @@ import { z } from 'zod';
 import { type AppController } from '@/app.ts';
 import { booleanParamSchema } from '@/schema.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { createAdminEvent, paginated, parseBody, updateEventInfo, updateUser } from '@/utils/api.ts';
+import { createAdminEvent, paginated, parseBody, updateEventInfo, updateUser } from '../../../utils/api.ts';
 import { renderNameRequest } from '@/views/ditto.ts';
 import { AdminAccountView } from '@/views/mastodon/AdminAccountView.ts';
-import { errorJson } from '@/utils/log.ts';
+import { errorJson } from '../../../utils/log.ts';
 
 const adminAccountQuerySchema = z.object({
   local: booleanParamSchema.optional(),

@@ -3,7 +3,7 @@ import { assertEquals } from '@std/assert';
 import data from '~/fixtures/config-db.json' with { type: 'json' };
 
 import { PleromaConfig } from '@/schemas/pleroma-api.ts';
-import { PleromaConfigDB } from '@/utils/PleromaConfigDB.ts';
+import { PleromaConfigDB } from './PleromaConfigDB.ts';
 
 Deno.test('PleromaConfigDB.getIn', () => {
   const configDB = new PleromaConfigDB(data.configs as PleromaConfig[]);

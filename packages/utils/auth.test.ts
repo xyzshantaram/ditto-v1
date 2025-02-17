@@ -1,7 +1,7 @@
 import { assertEquals } from '@std/assert';
 import { decodeHex, encodeHex } from '@std/encoding/hex';
 
-import { generateToken, getTokenHash } from '@/utils/auth.ts';
+import { generateToken, getTokenHash } from './auth.ts';
 
 Deno.test('generateToken', async () => {
   const sk = decodeHex('a0968751df8fd42f362213f08751911672f2a037113b392403bbb7dd31b71c95');

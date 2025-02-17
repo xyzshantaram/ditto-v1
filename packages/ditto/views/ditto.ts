@@ -1,5 +1,5 @@
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
-import { getTagSet } from '@/utils/tags.ts';
+import { getTagSet } from '../../utils/tags.ts';
 import { renderAdminAccount, renderAdminAccountFromPubkey } from '@/views/mastodon/admin-accounts.ts';
 
 /** Renders an Admin::Account entity from a name request event. */

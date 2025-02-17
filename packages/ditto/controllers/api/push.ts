@@ -3,8 +3,8 @@ import { nip19 } from 'nostr-tools';
 import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
-import { parseBody } from '@/utils/api.ts';
-import { getTokenHash } from '@/utils/auth.ts';
+import { parseBody } from '../../../utils/api.ts';
+import { getTokenHash } from '../../../utils/auth.ts';
 
 /** https://docs.joinmastodon.org/entities/WebPushSubscription/ */
 interface MastodonPushSubscription {

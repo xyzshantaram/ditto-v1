@@ -6,7 +6,7 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { finalizeEvent, generateSecretKey, nip19 } from 'nostr-tools';
 
 import { EventsDB } from '@/storages/EventsDB.ts';
-import { purifyEvent } from '@/utils/purify.ts';
+import { purifyEvent } from '../utils/purify.ts';
 import { sql } from 'kysely';
 
 /** Import an event fixture by name in tests. */

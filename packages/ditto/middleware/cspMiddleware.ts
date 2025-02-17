@@ -1,6 +1,6 @@
 import { AppMiddleware } from '@/app.ts';
-import { PleromaConfigDB } from '@/utils/PleromaConfigDB.ts';
-import { getPleromaConfigs } from '@/utils/pleroma.ts';
+import { PleromaConfigDB } from '../../utils/PleromaConfigDB.ts';
+import { getPleromaConfigs } from '../../utils/pleroma.ts';
 
 let configDBCache: Promise<PleromaConfigDB> | undefined;
 

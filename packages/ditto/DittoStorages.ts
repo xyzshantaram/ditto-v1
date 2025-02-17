@@ -9,8 +9,8 @@ import { AdminStore } from '@/storages/AdminStore.ts';
 import { EventsDB } from '@/storages/EventsDB.ts';
 import { InternalRelay } from '@/storages/InternalRelay.ts';
 import { NPool, NRelay1 } from '@nostrify/nostrify';
-import { getRelays } from '@/utils/outbox.ts';
-import { seedZapSplits } from '@/utils/zap-split.ts';
+import { getRelays } from '../utils/outbox.ts';
+import { seedZapSplits } from '../utils/zap-split.ts';
 
 export class DittoStorages {
   private _db: Promise<EventsDB> | undefined;

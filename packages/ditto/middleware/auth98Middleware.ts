@@ -2,8 +2,8 @@ import { HTTPException } from '@hono/hono/http-exception';
 import { NostrEvent } from '@nostrify/nostrify';
 
 import { type AppContext, type AppMiddleware } from '@/app.ts';
-import { localRequest } from '@/utils/api.ts';
-import { buildAuthEventTemplate, type ParseAuthRequestOpts, validateAuthEvent } from '@/utils/nip98.ts';
+import { localRequest } from '../../utils/api.ts';
+import { buildAuthEventTemplate, type ParseAuthRequestOpts, validateAuthEvent } from '../../utils/nip98.ts';
 
 type UserRole = 'user' | 'admin';
 

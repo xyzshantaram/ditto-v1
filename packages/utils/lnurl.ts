@@ -5,9 +5,9 @@ import { logi } from '@soapbox/logi';
 import { safeFetch } from '@soapbox/safe-fetch';
 import { JsonValue } from '@std/json';
 
-import { SimpleLRU } from '@/utils/SimpleLRU.ts';
-import { errorJson } from '@/utils/log.ts';
-import { Time } from '@/utils/time.ts';
+import { SimpleLRU } from './SimpleLRU.ts';
+import { errorJson } from './log.ts';
+import { Time } from './time.ts';
 
 const lnurlCache = new SimpleLRU<string, LNURLDetails>(
   async (lnurl, { signal }) => {

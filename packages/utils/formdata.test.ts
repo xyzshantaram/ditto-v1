@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from '@std/assert';
 
-import { parseFormData } from '@/utils/formdata.ts';
+import { parseFormData } from './formdata.ts';
 
 Deno.test('parseFormData', () => {
   const formData = new FormData();

@@ -7,7 +7,7 @@ import { translationCache } from '@/caches/translationCache.ts';
 import { MastodonTranslation } from '@/entities/MastodonTranslation.ts';
 import { getEvent } from '@/queries.ts';
 import { localeSchema } from '@/schema.ts';
-import { parseBody } from '@/utils/api.ts';
+import { parseBody } from '../../../utils/api.ts';
 import { StatusView } from '@/views/mastodon/StatusView.ts';
 
 const translateSchema = z.object({

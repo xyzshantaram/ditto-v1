@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import type { AppController } from '@/app.ts';
-import { parseBody } from '@/utils/api.ts';
+import { parseBody } from '../../../utils/api.ts';
 
 /**
  * Apps are unnecessary cruft in Mastodon API, but necessary to make clients work.

@@ -15,7 +15,7 @@ import { DittoStorages } from '@/DittoStorages.ts';
 import { startFirehose } from '@/firehose.ts';
 import { startNotify } from '@/notify.ts';
 import { EventsDB } from '@/storages/EventsDB.ts';
-import { Time } from '@/utils/time.ts';
+import { Time } from '../utils/time.ts';
 
 import {
   accountController,

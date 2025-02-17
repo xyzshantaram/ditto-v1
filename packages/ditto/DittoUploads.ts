@@ -1,6 +1,6 @@
 import { LRUCache } from 'lru-cache';
 
-import { Time } from '@/utils/time.ts';
+import { Time } from '../utils/time.ts';
 
 export interface DittoUpload {
   id: string;

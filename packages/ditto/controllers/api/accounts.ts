@@ -5,10 +5,17 @@ import { z } from 'zod';
 import { type AppController } from '@/app.ts';
 import { getAuthor, getFollowedPubkeys } from '@/queries.ts';
 import { booleanParamSchema, fileSchema } from '@/schema.ts';
-import { uploadFile } from '@/utils/upload.ts';
+import { uploadFile } from '../../../utils/upload.ts';
 import { nostrNow } from '@/utils.ts';
-import { assertAuthenticated, createEvent, paginated, parseBody, updateEvent, updateListEvent } from '@/utils/api.ts';
-import { extractIdentifier, lookupAccount, lookupPubkey } from '@/utils/lookup.ts';
+import {
+  assertAuthenticated,
+  createEvent,
+  paginated,
+  parseBody,
+  updateEvent,
+  updateListEvent,
+} from '../../../utils/api.ts';
+import { extractIdentifier, lookupAccount, lookupPubkey } from '../../../utils/lookup.ts';
 import { renderAccounts, renderEventAccounts, renderStatuses } from '@/views.ts';
 import { AccountView } from '@/views/mastodon/AccountView.ts';
 import { renderRelationship } from '@/views/mastodon/relationships.ts';
@@ -16,8 +23,8 @@ import { StatusView } from '@/views/mastodon/StatusView.ts';
 import { metadataSchema } from '@/schemas/nostr.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { bech32ToPubkey } from '@/utils.ts';
-import { addTag, deleteTag, findReplyTag, getTagSet } from '@/utils/tags.ts';
-import { getPubkeysBySearch } from '@/utils/search.ts';
+import { addTag, deleteTag, findReplyTag, getTagSet } from '../../../utils/tags.ts';
+import { getPubkeysBySearch } from '../../../utils/search.ts';
 
 const createAccountSchema = z.object({
   username: z.string().min(1).max(30).regex(/^[a-z0-9_]+$/i),

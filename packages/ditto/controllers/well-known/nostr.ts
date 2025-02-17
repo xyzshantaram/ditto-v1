@@ -2,7 +2,7 @@ import { NostrJson } from '@nostrify/nostrify';
 import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
-import { localNip05Lookup } from '@/utils/nip05.ts';
+import { localNip05Lookup } from '../../../utils/nip05.ts';
 
 const nameSchema = z.string().min(1).regex(/^[\w.-]+$/);
 const emptyResult: NostrJson = { names: {}, relays: {} };

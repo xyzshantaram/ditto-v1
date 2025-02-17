@@ -2,7 +2,7 @@ import { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 import { AppContext } from '@/app.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { paginated, paginatedList } from '@/utils/api.ts';
+import { paginated, paginatedList } from '../utils/api.ts';
 import { AccountView } from '@/views/mastodon/AccountView.ts';
 import { StatusView } from '@/views/mastodon/StatusView.ts';
 

@@ -3,18 +3,18 @@ import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
 import { getAuthor } from '@/queries.ts';
-import { addTag } from '@/utils/tags.ts';
-import { createEvent, paginated, parseBody, updateAdminEvent } from '@/utils/api.ts';
-import { getInstanceMetadata } from '@/utils/instance.ts';
-import { deleteTag } from '@/utils/tags.ts';
-import { DittoZapSplits, getZapSplits } from '@/utils/zap-split.ts';
+import { addTag } from '../../../utils/tags.ts';
+import { createEvent, paginated, parseBody, updateAdminEvent } from '../../../utils/api.ts';
+import { getInstanceMetadata } from '../../../utils/instance.ts';
+import { deleteTag } from '../../../utils/tags.ts';
+import { DittoZapSplits, getZapSplits } from '../../../utils/zap-split.ts';
 import { AdminSigner } from '@/signers/AdminSigner.ts';
 import { screenshotsSchema } from '@/schemas/nostr.ts';
 import { booleanParamSchema, percentageSchema, wsUrlSchema } from '@/schema.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { renderNameRequest } from '@/views/ditto.ts';
 import { AccountView } from '@/views/mastodon/AccountView.ts';
-import { updateListAdminEvent } from '@/utils/api.ts';
+import { updateListAdminEvent } from '../../../utils/api.ts';
 
 const markerSchema = z.enum(['read', 'write']);
 

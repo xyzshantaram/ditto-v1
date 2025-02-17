@@ -5,9 +5,9 @@ import { safeFetch } from '@soapbox/safe-fetch';
 import { nip19 } from 'nostr-tools';
 import tldts from 'tldts';
 
-import { errorJson } from '@/utils/log.ts';
-import { SimpleLRU } from '@/utils/SimpleLRU.ts';
-import { DittoConf } from '../../conf/mod.ts';
+import { errorJson } from './log.ts';
+import { SimpleLRU } from './SimpleLRU.ts';
+import { DittoConf } from '../conf/mod.ts';
 
 let nip05Cache: SimpleLRU<string, nip19.ProfilePointer> | undefined;
 

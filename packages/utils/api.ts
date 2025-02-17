@@ -10,8 +10,8 @@ import { type AppContext } from '@/app.ts';
 import { RelayError } from '@/RelayError.ts';
 import { AdminSigner } from '@/signers/AdminSigner.ts';
 import { nostrNow } from '@/utils.ts';
-import { parseFormData } from '@/utils/formdata.ts';
-import { purifyEvent } from '@/utils/purify.ts';
+import { parseFormData } from './formdata.ts';
+import { purifyEvent } from './purify.ts';
 
 /** EventTemplate with defaults. */
 type EventStub = TypeFest.SetOptional<EventTemplate, 'content' | 'created_at' | 'tags'>;

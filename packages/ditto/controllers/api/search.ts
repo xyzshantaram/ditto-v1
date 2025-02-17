@@ -8,13 +8,13 @@ import { z } from 'zod';
 import { AppController } from '@/app.ts';
 import { booleanParamSchema } from '@/schema.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { extractIdentifier, lookupPubkey } from '@/utils/lookup.ts';
-import { resolveNip05 } from '@/utils/nip05.ts';
+import { extractIdentifier, lookupPubkey } from '../../../utils/lookup.ts';
+import { resolveNip05 } from '../../../utils/nip05.ts';
 import { AccountView } from '@/views/mastodon/AccountView.ts';
 import { StatusView } from '@/views/mastodon/StatusView.ts';
 import { getFollowedPubkeys } from '@/queries.ts';
-import { getPubkeysBySearch } from '@/utils/search.ts';
-import { paginated, paginatedList } from '@/utils/api.ts';
+import { getPubkeysBySearch } from '../../../utils/search.ts';
+import { paginated, paginatedList } from '../../../utils/api.ts';
 
 const searchQuerySchema = z.object({
   q: z.string().transform(decodeURIComponent),

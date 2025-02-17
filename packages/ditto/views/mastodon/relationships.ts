@@ -1,6 +1,6 @@
 import { NostrEvent } from '@nostrify/nostrify';
 
-import { hasTag } from '@/utils/tags.ts';
+import { hasTag } from '../../../utils/tags.ts';
 
 interface RenderRelationshipOpts {
   sourcePubkey: string;

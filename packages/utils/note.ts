@@ -5,8 +5,8 @@ import linkify from 'linkifyjs';
 import { nip19, nip27 } from 'nostr-tools';
 
 import { MastodonMention } from '@/entities/MastodonMention.ts';
-import { html } from '@/utils/html.ts';
-import { getUrlMediaType, isPermittedMediaType } from '@/utils/media.ts';
+import { html } from './html.ts';
+import { getUrlMediaType, isPermittedMediaType } from './media.ts';
 
 linkify.registerCustomProtocol('nostr', true);
 linkify.registerCustomProtocol('wss');

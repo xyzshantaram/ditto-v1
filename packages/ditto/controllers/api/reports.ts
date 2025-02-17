@@ -2,7 +2,7 @@ import { NostrFilter, NSchema as n } from '@nostrify/nostrify';
 import { z } from 'zod';
 
 import { type AppController } from '@/app.ts';
-import { createEvent, paginated, parseBody, updateEventInfo } from '@/utils/api.ts';
+import { createEvent, paginated, parseBody, updateEventInfo } from '../../../utils/api.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { renderAdminReport } from '@/views/mastodon/reports.ts';
 import { renderReport } from '@/views/mastodon/reports.ts';

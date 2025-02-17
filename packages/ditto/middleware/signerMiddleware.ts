@@ -8,8 +8,8 @@ import { nip19 } from 'nostr-tools';
 
 import { ConnectSigner } from '@/signers/ConnectSigner.ts';
 import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
-import { aesDecrypt } from '@/utils/aes.ts';
-import { getTokenHash } from '@/utils/auth.ts';
+import { aesDecrypt } from '../../utils/aes.ts';
+import { getTokenHash } from '../../utils/auth.ts';
 
 /** We only accept "Bearer" type. */
 const BEARER_REGEX = new RegExp(`^Bearer (${nip19.BECH32_REGEX.source})$`);

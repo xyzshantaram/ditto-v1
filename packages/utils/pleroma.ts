@@ -3,7 +3,7 @@ import { NSchema as n, NStore } from '@nostrify/nostrify';
 
 import { configSchema } from '@/schemas/pleroma-api.ts';
 import { AdminSigner } from '@/signers/AdminSigner.ts';
-import { PleromaConfigDB } from '@/utils/PleromaConfigDB.ts';
+import { PleromaConfigDB } from './PleromaConfigDB.ts';
 
 interface GetPleromaConfigOpts {
   conf: DittoConf;

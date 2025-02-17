@@ -2,7 +2,7 @@ import { assertEquals } from '@std/assert';
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 
 import { createTestDB, genEvent } from '@/test.ts';
-import { countAuthorStats, getAuthorStats, getEventStats, getFollowDiff, updateStats } from '@/utils/stats.ts';
+import { countAuthorStats, getAuthorStats, getEventStats, getFollowDiff, updateStats } from './stats.ts';
 
 Deno.test('updateStats with kind 1 increments notes count', async () => {
   await using db = await createTestDB();

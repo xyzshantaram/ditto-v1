@@ -1,6 +1,6 @@
 import { assertEquals } from '@std/assert';
 
-import { getUrlMediaType, isPermittedMediaType } from '@/utils/media.ts';
+import { getUrlMediaType, isPermittedMediaType } from './media.ts';
 
 Deno.test('getUrlMediaType', () => {
   assertEquals(getUrlMediaType('https://example.com/image.png'), 'image/png');

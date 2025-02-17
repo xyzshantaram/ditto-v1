@@ -8,8 +8,8 @@ import { stringToBytes } from '@scure/base';
 import { logi } from '@soapbox/logi';
 
 import { isNostrId } from '@/utils.ts';
-import { errorJson } from '@/utils/log.ts';
-import { createEvent } from '@/utils/api.ts';
+import { errorJson } from '../../utils/log.ts';
+import { createEvent } from '../../utils/api.ts';
 import { z } from 'zod';
 
 /**

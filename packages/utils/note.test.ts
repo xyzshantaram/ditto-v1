@@ -1,7 +1,7 @@
 import { assertEquals } from '@std/assert';
 
 import { eventFixture, testConf } from '@/test.ts';
-import { getMediaLinks, parseNoteContent, stripimeta } from '@/utils/note.ts';
+import { getMediaLinks, parseNoteContent, stripimeta } from './note.ts';
 
 Deno.test('parseNoteContent', () => {
   const conf = testConf();

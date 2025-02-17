@@ -1,5 +1,5 @@
 import { MastodonAttachment } from '@/entities/MastodonAttachment.ts';
-import { getUrlMediaType } from '@/utils/media.ts';
+import { getUrlMediaType } from '../../../utils/media.ts';
 
 /** Render Mastodon media attachment. */
 function renderAttachment(

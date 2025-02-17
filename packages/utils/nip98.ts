@@ -5,7 +5,7 @@ import { EventTemplate, nip13 } from 'nostr-tools';
 import { decode64Schema } from '@/schema.ts';
 import { signedEventSchema } from '@/schemas/nostr.ts';
 import { eventAge, findTag, nostrNow } from '@/utils.ts';
-import { Time } from '@/utils/time.ts';
+import { Time } from './time.ts';
 
 /** Decode a Nostr event from a base64 encoded string. */
 const decode64EventSchema = decode64Schema.pipe(n.json()).pipe(signedEventSchema);

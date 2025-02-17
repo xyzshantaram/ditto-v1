@@ -83,4 +83,4 @@ function fallbackAuthor(pubkey: string): NostrEvent {
 
 export { bech32ToPubkey, eventAge, fallbackAuthor, findTag, isNostrId, type Nip05, nostrDate, nostrNow, parseNip05 };
 
-export { Time } from '@/utils/time.ts';
+export { Time } from '../utils/time.ts';

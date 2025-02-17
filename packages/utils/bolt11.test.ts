@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert';
-import { getAmount } from '@/utils/bolt11.ts';
+import { getAmount } from './bolt11.ts';
 
 Deno.test('Invoice is invalid', () => {
   assertEquals(getAmount('hello'), undefined);

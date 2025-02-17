@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { AppContext, AppController } from '@/app.ts';
 import { DittoPagination } from '@/interfaces/DittoPagination.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { paginated } from '@/utils/api.ts';
+import { paginated } from '../../../utils/api.ts';
 import { renderNotification } from '@/views/mastodon/notifications.ts';
 
 /** Set of known notification types across backends. */

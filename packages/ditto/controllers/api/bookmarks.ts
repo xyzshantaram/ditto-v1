@@ -1,5 +1,5 @@
 import { type AppController } from '@/app.ts';
-import { getTagSet } from '@/utils/tags.ts';
+import { getTagSet } from '../../../utils/tags.ts';
 import { renderStatuses } from '@/views.ts';
 
 /** https://docs.joinmastodon.org/methods/bookmarks/#get */

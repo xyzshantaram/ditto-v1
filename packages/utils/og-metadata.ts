@@ -3,7 +3,7 @@ import { match } from 'path-to-regexp';
 
 import { MastodonAccount } from '@/entities/MastodonAccount.ts';
 import { MastodonStatus } from '@/entities/MastodonStatus.ts';
-import { InstanceMetadata } from '@/utils/instance.ts';
+import { InstanceMetadata } from './instance.ts';
 
 export interface MetadataEntities {
   status?: MastodonStatus;

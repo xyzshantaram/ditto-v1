@@ -2,7 +2,7 @@ import { DittoConf } from '@ditto/conf';
 import { nip19 } from 'nostr-tools';
 
 import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
-import { refreshAuthorStats } from '../packages/ditto/utils/stats.ts';
+import { refreshAuthorStats } from '../packages/utils/stats.ts';
 
 const conf = new DittoConf(Deno.env);
 const storages = new DittoStorages(conf);

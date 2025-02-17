@@ -4,10 +4,10 @@ import { z } from 'zod';
 import { AppController } from '@/app.ts';
 import { dittoUploads } from '@/DittoUploads.ts';
 import { fileSchema } from '@/schema.ts';
-import { parseBody } from '@/utils/api.ts';
+import { parseBody } from '../../../utils/api.ts';
 import { renderAttachment } from '@/views/mastodon/attachments.ts';
-import { errorJson } from '@/utils/log.ts';
-import { uploadFile } from '@/utils/upload.ts';
+import { errorJson } from '../../../utils/log.ts';
+import { uploadFile } from '../../../utils/upload.ts';
 
 const mediaBodySchema = z.object({
   file: fileSchema,

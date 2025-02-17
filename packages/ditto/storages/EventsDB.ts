@@ -15,11 +15,11 @@ import { z } from 'zod';
 
 import { RelayError } from '@/RelayError.ts';
 import { isNostrId } from '@/utils.ts';
-import { abortError } from '@/utils/abort.ts';
-import { purifyEvent } from '@/utils/purify.ts';
+import { abortError } from '../../utils/abort.ts';
+import { purifyEvent } from '../../utils/purify.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
-import { detectLanguage } from '@/utils/language.ts';
-import { getMediaLinks } from '@/utils/note.ts';
+import { detectLanguage } from '../../utils/language.ts';
+import { getMediaLinks } from '../../utils/note.ts';
 
 /** Function to decide whether or not to index a tag. */
 type TagCondition = (opts: TagConditionOpts) => boolean;

@@ -7,9 +7,9 @@ import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
 import { nostrNow } from '@/utils.ts';
-import { parseBody } from '@/utils/api.ts';
-import { aesEncrypt } from '@/utils/aes.ts';
-import { generateToken, getTokenHash } from '@/utils/auth.ts';
+import { parseBody } from '../../../utils/api.ts';
+import { aesEncrypt } from '../../../utils/aes.ts';
+import { generateToken, getTokenHash } from '../../../utils/auth.ts';
 import { Kysely } from 'kysely';
 
 const passwordGrantSchema = z.object({

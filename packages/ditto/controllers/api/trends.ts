@@ -7,10 +7,10 @@ import { AppController } from '@/app.ts';
 import { PreviewCard } from '@/entities/PreviewCard.ts';
 import { paginationSchema } from '@/schemas/pagination.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { generateDateRange, Time } from '@/utils/time.ts';
-import { unfurlCardCached } from '@/utils/unfurl.ts';
-import { paginated } from '@/utils/api.ts';
-import { errorJson } from '@/utils/log.ts';
+import { generateDateRange, Time } from '../../../utils/time.ts';
+import { unfurlCardCached } from '../../../utils/unfurl.ts';
+import { paginated } from '../../../utils/api.ts';
+import { errorJson } from '../../../utils/log.ts';
 import { StatusView } from '@/views/mastodon/StatusView.ts';
 
 interface MastodonTrendingHashtag {

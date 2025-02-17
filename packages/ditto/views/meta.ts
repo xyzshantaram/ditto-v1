@@ -1,8 +1,8 @@
 import { DittoConf } from '@ditto/conf';
 import DOMPurify from 'isomorphic-dompurify';
 
-import { html } from '@/utils/html.ts';
-import { MetadataEntities } from '@/utils/og-metadata.ts';
+import { html } from '../../utils/html.ts';
+import { MetadataEntities } from '../../utils/og-metadata.ts';
 
 /**
  * Builds a series of meta tags from supplied metadata for injection into the served HTML page.

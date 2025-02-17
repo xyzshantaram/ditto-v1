@@ -3,8 +3,8 @@ import { matchFilter } from 'nostr-tools';
 
 import { AppContext, AppController } from '@/app.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { paginated, paginatedList } from '@/utils/api.ts';
-import { getTagSet } from '@/utils/tags.ts';
+import { paginated, paginatedList } from '../../../utils/api.ts';
+import { getTagSet } from '../../../utils/tags.ts';
 import { accountFromPubkey, renderAccount } from '@/views/mastodon/accounts.ts';
 
 export const suggestionsV1Controller: AppController = async (c) => {

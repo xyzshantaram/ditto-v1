@@ -7,7 +7,7 @@ import sharp from 'sharp';
 
 import { AppContext } from '@/app.ts';
 import { DittoUpload, dittoUploads } from '@/DittoUploads.ts';
-import { errorJson } from '@/utils/log.ts';
+import { errorJson } from './log.ts';
 
 interface FileMeta {
   pubkey: string;

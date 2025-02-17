@@ -1,5 +1,5 @@
 import { createTestDB, eventFixture } from '@/test.ts';
-import { getRelays } from '@/utils/outbox.ts';
+import { getRelays } from './outbox.ts';
 import { assertEquals } from '@std/assert';
 
 Deno.test('Get write relays - kind 10002', async () => {

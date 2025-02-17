@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { AppController } from '@/app.ts';
-import { parseBody } from '@/utils/api.ts';
+import { parseBody } from '../../../utils/api.ts';
 
 const kv = await Deno.openKv();
 

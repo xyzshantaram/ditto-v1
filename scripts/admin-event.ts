@@ -4,7 +4,7 @@ import { TextLineStream } from '@std/streams/text-line-stream';
 
 import { AdminSigner } from '../packages/ditto/signers/AdminSigner.ts';
 import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
-import { type EventStub } from '../packages/ditto/utils/api.ts';
+import { type EventStub } from '../packages/utils/api.ts';
 import { nostrNow } from '../packages/ditto/utils.ts';
 
 const conf = new DittoConf(Deno.env);

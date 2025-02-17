@@ -5,7 +5,7 @@ import { Insertable, Kysely, UpdateObject } from 'kysely';
 import { SetRequired } from 'type-fest';
 import { z } from 'zod';
 
-import { findQuoteTag, findReplyTag, getTagSet } from '@/utils/tags.ts';
+import { findQuoteTag, findReplyTag, getTagSet } from './tags.ts';
 
 interface UpdateStatsOpts {
   conf: DittoConf;

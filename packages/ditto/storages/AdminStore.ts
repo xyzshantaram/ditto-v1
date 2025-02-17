@@ -2,7 +2,7 @@ import { DittoConf } from '@ditto/conf';
 import { NostrEvent, NostrFilter, NStore } from '@nostrify/nostrify';
 
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
-import { getTagSet } from '@/utils/tags.ts';
+import { getTagSet } from '../../utils/tags.ts';
 
 /** A store that prevents banned users from being displayed. */
 export class AdminStore implements NStore {
