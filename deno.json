@@ -6,6 +6,7 @@
     "./packages/db",
     "./packages/ditto",
     "./packages/metrics",
+    "./packages/ratelimiter",
     "./packages/translators"
   ],
   "tasks": {

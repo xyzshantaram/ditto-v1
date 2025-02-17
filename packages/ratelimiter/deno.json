@@ -1,0 +1,6 @@
+{
+  "name": "@ditto/ratelimiter",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}
