@@ -1,5 +1,5 @@
-import { NostrEvent } from '@nostrify/nostrify';
-import { LanguageCode } from 'iso-639-1';
+import type { NostrEvent } from '@nostrify/nostrify';
+import type { LanguageCode } from 'iso-639-1';
 
 /** Ditto internal stats for the event's author. */
 export interface AuthorStats {

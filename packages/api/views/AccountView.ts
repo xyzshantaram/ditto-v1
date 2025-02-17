@@ -1,7 +1,7 @@
-import { DittoConf } from '@ditto/conf';
-import { NSchema as n } from '@nostrify/nostrify';
-import { nip19, UnsignedEvent } from 'nostr-tools';
+import { type NostrEvent, NSchema as n } from '@nostrify/nostrify';
+import { nip19 } from 'nostr-tools';
 
+import type { DittoConf } from '@ditto/conf';
 import { MastodonAccount } from '@/entities/MastodonAccount.ts';
 import { type DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { metadataSchema } from '@/schemas/nostr.ts';
@@ -157,7 +157,7 @@ export class AccountView {
   }
 
   private accountFromPubkey(pubkey: string, opts: ToAccountOpts = {}): MastodonAccount {
-    const event: UnsignedEvent = {
+    const event: Omit<NostrEvent, 'id' | 'sig'> = {
       kind: 0,
       pubkey,
       content: '',

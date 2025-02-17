@@ -1,8 +1,7 @@
-import { DittoConf } from '@ditto/conf';
+import { AccountView } from './AccountView.ts';
 
-import { DittoEvent } from '@/interfaces/DittoEvent.ts';
-import { getTagSet } from '@/utils/tags.ts';
-import { AccountView } from '@/views/mastodon/AccountView.ts';
+import type { DittoEvent } from '@ditto/api';
+import type { DittoConf } from '@ditto/conf';
 
 interface AdminAccountViewOpts {
   conf: DittoConf;
