@@ -54,6 +54,7 @@ export class DittoPostgres {
         return pg.connections.idle;
       },
       listen,
+      [Symbol.asyncDispose]: () => kysely.destroy(),
     };
   }
 }
