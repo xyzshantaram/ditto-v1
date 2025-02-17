@@ -1,52 +1,59 @@
-import { type Env, Hono } from '@hono/hono';
+import { type Context, type ErrorHandler, Hono } from '@hono/hono';
+import { HTTPException } from '@hono/hono/http-exception';
 
-import type { DittoConf } from '@ditto/conf';
-import type { DittoDatabase, DittoTables } from '@ditto/db';
 import type { HonoOptions } from '@hono/hono/hono-base';
-import type { NostrSigner, NPool, NRelay, NStore, NUploader } from '@nostrify/nostrify';
-import type { Kysely } from 'kysely';
+import type { DittoEnv } from './DittoEnv.ts';
 
-interface DittoEnv extends Env {
-  Variables: {
-    conf: DittoConf;
-    user?: {
-      /** Signer to get the logged-in user's pubkey, relays, and to sign events, or `undefined` if the user isn't logged in. */
-      signer: NostrSigner;
-      /** Storage for the user, might filter out unwanted content. */
-      store: NStore;
-    };
-    /** Uploader for the user to upload files. */
-    uploader?: NUploader;
-    /** Kysely instance for the database. */
-    kysely: Kysely<DittoTables>;
-    /** Main database. */
-    store: NRelay;
-    /** Internal Nostr relay for realtime subscriptions. */
-    pubsub: NRelay;
-    /** Nostr relay pool. */
-    pool: NPool<NRelay>;
-    /** Database object. */
-    db: DittoDatabase;
-    /** Normalized pagination params. */
-    pagination: { since?: number; until?: number; limit: number };
-    /** Normalized list pagination params. */
-    listPagination: { offset: number; limit: number };
-    /** Translation service. */
-    translator?: DittoTranslator;
-    signal: AbortSignal;
-    pipeline: Pick<NStore, 'event'>;
-  };
-}
-
+/**
+ * Ditto base route class.
+ * Ensures that required variables are set for type safety.
+ */
 export class DittoRoute extends Hono<DittoEnv> {
   constructor(opts: HonoOptions<DittoEnv> = {}) {
     super(opts);
-    this.init();
-  }
 
-  init(): void {
     this.use((c, next) => {
+      this.setSignal(c);
+      this.assertVars(c.var);
       return next();
     });
+
+    this.onError(this._errorHandler);
   }
+
+  private setSignal(c: Context<DittoEnv>): void {
+    if (!c.var.signal) {
+      c.set('signal', c.req.raw.signal);
+    }
+  }
+
+  private assertVars(vars: Partial<DittoEnv['Variables']>): DittoEnv['Variables'] {
+    if (!vars.db) this.throwMissingVar('db');
+    if (!vars.conf) this.throwMissingVar('conf');
+    if (!vars.store) this.throwMissingVar('store');
+    if (!vars.signal) this.throwMissingVar('signal');
+
+    return {
+      db: vars.db,
+      conf: vars.conf,
+      store: vars.store,
+      signal: vars.signal,
+    };
+  }
+
+  private throwMissingVar(name: string): never {
+    throw new HTTPException(500, { message: `Missing required variable: ${name}` });
+  }
+
+  private _errorHandler: ErrorHandler = (error, c) => {
+    if (error instanceof HTTPException) {
+      if (error.res) {
+        return error.res;
+      } else {
+        return c.json({ error: error.message }, error.status);
+      }
+    }
+
+    return c.json({ error: 'Something went wrong' }, 500);
+  };
 }
