@@ -6,10 +6,10 @@ let configDBCache: Promise<PleromaConfigDB> | undefined;
 
 export const cspMiddleware = (): AppMiddleware => {
   return async (c, next) => {
-    const { conf, store } = c.var;
+    const { conf } = c.var;
 
     if (!configDBCache) {
-      configDBCache = getPleromaConfigs(conf, store);
+      configDBCache = getPleromaConfigs(c.var);
     }
 
     const { host, protocol, origin } = conf.url;

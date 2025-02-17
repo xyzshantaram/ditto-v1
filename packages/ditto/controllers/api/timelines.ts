@@ -7,19 +7,33 @@ import { booleanParamSchema, languageSchema } from '@/schema.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { paginated } from '@/utils/api.ts';
 import { getTagSet } from '@/utils/tags.ts';
-import { renderReblog, renderStatus } from '@/views/mastodon/statuses.ts';
+import { StatusView } from '@/views/mastodon/StatusView.ts';
+import { Hono } from '@hono/hono';
 
 const homeQuerySchema = z.object({
   exclude_replies: booleanParamSchema.optional(),
   only_media: booleanParamSchema.optional(),
 });
 
+export interface TimelineRouteOpts {
+}
+
+export class TimelineRoute {
+  private app: Hono;
+
+  constructor(private opts: TimelineRouteOpts) {
+    this.app = new Hono();
+  }
+}
+
 const homeTimelineController: AppController = async (c) => {
-  const params = c.get('pagination');
-  const pubkey = await c.get('signer')?.getPublicKey()!;
+  const { user, pagination } = c.var;
+
+  const pubkey = await user.signer.getPublicKey()!;
   const result = homeQuerySchema.safeParse(c.req.query());
 
-  if (!result.success) {
+  if (!result.success) {const homeTimelineController: AppController = async (c) => {
+
     return c.json({ error: 'Bad request', schema: result.error }, 400);
   }
 
