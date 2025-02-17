@@ -29,18 +29,17 @@ export class TimelineRoute {
 const homeTimelineController: AppController = async (c) => {
   const { user, pagination } = c.var;
 
-  const pubkey = await user.signer.getPublicKey()!;
+  const pubkey = await user!.signer.getPublicKey()!;
   const result = homeQuerySchema.safeParse(c.req.query());
 
-  if (!result.success) {const homeTimelineController: AppController = async (c) => {
-
+  if (!result.success) {
     return c.json({ error: 'Bad request', schema: result.error }, 400);
   }
 
   const { exclude_replies, only_media } = result.data;
 
-  const authors = [...await getFeedPubkeys(pubkey)];
-  const filter: NostrFilter = { authors, kinds: [1, 6, 20], ...params };
+  const authors = [...await getFeedPubkeys(c.var, pubkey)];
+  const filter: NostrFilter = { authors, kinds: [1, 6, 20], ...pagination };
 
   const search: string[] = [];
 
@@ -66,8 +65,7 @@ const publicQuerySchema = z.object({
 });
 
 const publicTimelineController: AppController = (c) => {
-  const { conf } = c.var;
-  const params = c.get('pagination');
+  const { conf, pagination } = c.var;
   const result = publicQuerySchema.safeParse(c.req.query());
 
   if (!result.success) {
@@ -76,7 +74,7 @@ const publicTimelineController: AppController = (c) => {
 
   const { local, instance, language } = result.data;
 
-  const filter: NostrFilter = { kinds: [1, 20], ...params };
+  const filter: NostrFilter = { kinds: [1, 20], ...pagination };
 
   const search: `${string}:${string}`[] = [];
 
@@ -98,9 +96,9 @@ const publicTimelineController: AppController = (c) => {
 };
 
 const hashtagTimelineController: AppController = (c) => {
+  const { pagination } = c.var;
   const hashtag = c.req.param('hashtag')!.toLowerCase();
-  const params = c.get('pagination');
-  return renderStatuses(c, [{ kinds: [1, 20], '#t': [hashtag], ...params }]);
+  return renderStatuses(c, [{ kinds: [1, 20], '#t': [hashtag], ...pagination }]);
 };
 
 const suggestedTimelineController: AppController = async (c) => {
@@ -119,27 +117,19 @@ const suggestedTimelineController: AppController = async (c) => {
 
 /** Render statuses for timelines. */
 async function renderStatuses(c: AppContext, filters: NostrFilter[]) {
-  const { conf } = c.var;
-  const { signal } = c.req.raw;
-  const store = c.get('store');
+  const { conf, store, user, signal } = c.var;
   const opts = { signal, timeout: conf.db.timeouts.timelines };
 
   const events = await store
     .query(filters, opts)
-    .then((events) => hydrateEvents({ events, store, signal }));
+    .then((events) => hydrateEvents(c.var, events));
 
   if (!events.length) {
     return c.json([]);
   }
 
-  const viewerPubkey = await c.get('signer')?.getPublicKey();
-
-  const statuses = (await Promise.all(events.map((event) => {
-    if (event.kind === 6) {
-      return renderReblog(event, { viewerPubkey });
-    }
-    return renderStatus(event, { viewerPubkey });
-  }))).filter(Boolean);
+  const view = new StatusView(c.var);
+  const statuses = (await Promise.all(events.map((event) => view.render(event)))).filter(Boolean);
 
   if (!statuses.length) {
     return c.json([]);

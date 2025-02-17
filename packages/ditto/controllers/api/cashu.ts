@@ -1,8 +1,7 @@
 import { Proof } from '@cashu/cashu-ts';
-import { confRequiredMw } from '@ditto/api/middleware';
-import { Hono } from '@hono/hono';
-import { generateSecretKey, getPublicKey } from 'nostr-tools';
+import { DittoRoute } from '@ditto/api';
 import { bytesToString, stringToBytes } from '@scure/base';
+import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import { z } from 'zod';
 
 import { createEvent, parseBody } from '@/utils/api.ts';
@@ -15,7 +14,7 @@ import { errorJson } from '@/utils/log.ts';
 
 type Wallet = z.infer<typeof walletSchema>;
 
-const app = new Hono().use('*', confRequiredMw, requireStore);
+const app = new DittoRoute();
 
 // app.delete('/wallet') -> 204
 
@@ -44,9 +43,8 @@ const createCashuWalletAndNutzapInfoSchema = z.object({
  * https://github.com/nostr-protocol/nips/blob/master/61.md#nutzap-informational-event
  */
 app.put('/wallet', requireNip44Signer, async (c) => {
-  const { conf, signer } = c.var;
-  const store = c.get('store');
-  const pubkey = await signer.getPublicKey();
+  const { conf, store, user } = c.var;
+  const pubkey = await user.signer.getPublicKey();
   const body = await parseBody(c.req.raw);
   const { signal } = c.req.raw;
   const result = createCashuWalletAndNutzapInfoSchema.safeParse(body);
@@ -74,23 +72,23 @@ app.put('/wallet', requireNip44Signer, async (c) => {
     walletContentTags.push(['mint', mint]);
   }
 
-  const encryptedWalletContentTags = await signer.nip44.encrypt(pubkey, JSON.stringify(walletContentTags));
+  const encryptedWalletContentTags = await user.signer.nip44.encrypt(pubkey, JSON.stringify(walletContentTags));
 
   // Wallet
-  await createEvent({
+  await createEvent(c.var, {
     kind: 17375,
     content: encryptedWalletContentTags,
-  }, c);
+  });
 
   // Nutzap information
-  await createEvent({
+  await createEvent(c.var, {
     kind: 10019,
     tags: [
       ...mints.map((mint) => ['mint', mint, 'sat']),
       ['relay', conf.relay], // TODO: add more relays once things get more stable
       ['pubkey', p2pk],
     ],
-  }, c);
+  });
 
   // TODO: hydrate wallet and add a 'balance' field when a 'renderWallet' view function is created
   const walletEntity: Wallet = {
@@ -105,9 +103,9 @@ app.put('/wallet', requireNip44Signer, async (c) => {
 
 /** Gets a wallet, if it exists. */
 app.get('/wallet', requireNip44Signer, swapNutzapsMiddleware, async (c) => {
-  const { conf, signer } = c.var;
+  const { conf, user } = c.var;
   const store = c.get('store');
-  const pubkey = await signer.getPublicKey();
+  const pubkey = await user.signer.getPublicKey();
   const { signal } = c.req.raw;
 
   const [event] = await store.query([{ authors: [pubkey], kinds: [17375] }], { signal });
@@ -115,7 +113,7 @@ app.get('/wallet', requireNip44Signer, swapNutzapsMiddleware, async (c) => {
     return c.json({ error: 'Wallet not found' }, 404);
   }
 
-  const decryptedContent: string[][] = JSON.parse(await signer.nip44.decrypt(pubkey, event.content));
+  const decryptedContent: string[][] = JSON.parse(await user.signer.nip44.decrypt(pubkey, event.content));
 
   const privkey = decryptedContent.find(([value]) => value === 'privkey')?.[1];
   if (!privkey || !isNostrId(privkey)) {
@@ -131,7 +129,7 @@ app.get('/wallet', requireNip44Signer, swapNutzapsMiddleware, async (c) => {
   for (const token of tokens) {
     try {
       const decryptedContent: { mint: string; proofs: Proof[] } = JSON.parse(
-        await signer.nip44.decrypt(pubkey, token.content),
+        await user.signer.nip44.decrypt(pubkey, token.content),
       );
 
       if (!mints.includes(decryptedContent.mint)) {

@@ -1,6 +1,8 @@
+import { DittoApp } from '@ditto/api';
 import { DittoConf } from '@ditto/conf';
 import { DittoDatabase, DittoTables } from '@ditto/db';
-import { type Context, Env as HonoEnv, Handler, Hono, Input as HonoInput, MiddlewareHandler } from '@hono/hono';
+import { type DittoTranslator } from '@ditto/translators';
+import { type Context, Env as HonoEnv, Handler, Input as HonoInput, MiddlewareHandler } from '@hono/hono';
 import { every } from '@hono/hono/combine';
 import { cors } from '@hono/hono/cors';
 import { serveStatic } from '@hono/hono/deno';
@@ -137,7 +139,6 @@ import { metricsController } from '@/controllers/metrics.ts';
 import { manifestController } from '@/controllers/manifest.ts';
 import { nodeInfoController, nodeInfoSchemaController } from '@/controllers/well-known/nodeinfo.ts';
 import { nostrController } from '@/controllers/well-known/nostr.ts';
-import { DittoTranslator } from '@/interfaces/DittoTranslator.ts';
 import { requireProof, requireRole } from '@/middleware/auth98Middleware.ts';
 import { cacheControlMiddleware } from '@/middleware/cacheControlMiddleware.ts';
 import { cspMiddleware } from '@/middleware/cspMiddleware.ts';
@@ -222,25 +223,12 @@ type AppMiddleware = MiddlewareHandler<AppEnv>;
 // deno-lint-ignore no-explicit-any
 type AppController<P extends string = any> = Handler<AppEnv, P, HonoInput, Response | Promise<Response>>;
 
-const app = new Hono<AppEnv>({ strict: false });
+const app = new DittoApp({ conf, db, store }, { strict: false });
 
 /** User-provided files in the gitignored `public/` directory. */
 const publicFiles = serveStatic({ root: conf.publicDir });
 /** Static files provided by the Ditto repo, checked into git. */
 const staticFiles = serveStatic({ root: new URL('./static', import.meta.url).pathname });
-
-// Set up the base context.
-app.use((c, next) => {
-  c.set('db', db);
-  c.set('conf', conf);
-  c.set('kysely', kysely);
-  c.set('pool', pool);
-  c.set('store', store);
-  c.set('pubsub', pubsub);
-  c.set('signal', c.req.raw.signal);
-  c.set('pipeline', pipeline);
-  return next();
-});
 
 app.use(cacheControlMiddleware({ noStore: true }));
 
