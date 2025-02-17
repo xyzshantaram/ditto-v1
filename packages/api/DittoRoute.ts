@@ -1,4 +1,4 @@
-import { type Context, type ErrorHandler, Hono } from '@hono/hono';
+import { type ErrorHandler, Hono } from '@hono/hono';
 import { HTTPException } from '@hono/hono/http-exception';
 
 import type { HonoOptions } from '@hono/hono/hono-base';
@@ -13,18 +13,11 @@ export class DittoRoute extends Hono<DittoEnv> {
     super(opts);
 
     this.use((c, next) => {
-      this.setSignal(c);
       this.assertVars(c.var);
       return next();
     });
 
     this.onError(this._errorHandler);
-  }
-
-  private setSignal(c: Context<DittoEnv>): void {
-    if (!c.var.signal) {
-      c.set('signal', c.req.raw.signal);
-    }
   }
 
   private assertVars(vars: Partial<DittoEnv['Variables']>): DittoEnv['Variables'] {

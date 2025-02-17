@@ -1,10 +1,17 @@
+import { DittoConf } from '@ditto/conf';
+import { DittoDB } from '@ditto/db';
 import { Hono } from '@hono/hono';
+import { MockRelay } from '@nostrify/nostrify/test';
 
 import { DittoApp } from './DittoApp.ts';
 import { DittoRoute } from './DittoRoute.ts';
 
-Deno.test('DittoApp', () => {
-  const app = new DittoApp();
+Deno.test('DittoApp', async () => {
+  await using db = DittoDB.create('memory://');
+  const conf = new DittoConf(new Map());
+  const store = new MockRelay();
+
+  const app = new DittoApp({ conf, db, store });
 
   const hono = new Hono();
   const route = new DittoRoute();
