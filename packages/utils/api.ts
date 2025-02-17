@@ -19,7 +19,6 @@ type EventStub = TypeFest.SetOptional<EventTemplate, 'content' | 'created_at' | 
 interface CreateEventOpts {
   conf: DittoConf;
   store: NStore;
-  pool: NStore;
   user: {
     signer: NostrSigner;
   };

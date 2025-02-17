@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { DittoPush } from '@/DittoPush.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { RelayError } from '@/RelayError.ts';
-import { AdminSigner } from '@/signers/AdminSigner.ts';
+import { AdminSigner } from '../signers/AdminSigner.ts';
 import { type EventsDB } from '@/storages/EventsDB.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { eventAge, Time } from '@/utils.ts';

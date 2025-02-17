@@ -1,0 +1,6 @@
+{
+  "name": "@ditto/lang",
+  "exports": {
+    ".": "./language.ts"
+  }
+}

@@ -1,6 +1,6 @@
 import { NostrEvent, NostrRelayOK, NPolicy, NStore } from '@nostrify/nostrify';
 
-import { getTagSet } from '../../utils/tags.ts';
+import { getTagSet } from '@ditto/utils/tags';
 
 export class MuteListPolicy implements NPolicy {
   constructor(private pubkey: string, private store: NStore) {}

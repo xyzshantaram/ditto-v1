@@ -8,7 +8,7 @@ import { createEvent, paginated, parseBody, updateAdminEvent } from '../../../ut
 import { getInstanceMetadata } from '../../../utils/instance.ts';
 import { deleteTag } from '../../../utils/tags.ts';
 import { DittoZapSplits, getZapSplits } from '../../../utils/zap-split.ts';
-import { AdminSigner } from '@/signers/AdminSigner.ts';
+import { AdminSigner } from '../../../signers/AdminSigner.ts';
 import { screenshotsSchema } from '@/schemas/nostr.ts';
 import { booleanParamSchema, percentageSchema, wsUrlSchema } from '@/schema.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';

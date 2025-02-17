@@ -1,6 +1,6 @@
 {
   "name": "@ditto/utils",
   "exports": {
-    ".": "./mod.ts"
+    "./tags": "./tags.ts"
   }
 }

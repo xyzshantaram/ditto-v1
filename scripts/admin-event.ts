@@ -2,7 +2,7 @@ import { DittoConf } from '@ditto/conf';
 import { JsonParseStream } from '@std/json/json-parse-stream';
 import { TextLineStream } from '@std/streams/text-line-stream';
 
-import { AdminSigner } from '../packages/ditto/signers/AdminSigner.ts';
+import { AdminSigner } from '../packages/signers/AdminSigner.ts';
 import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 import { type EventStub } from '../packages/utils/api.ts';
 import { nostrNow } from '../packages/ditto/utils.ts';

@@ -2,9 +2,9 @@ import { BlossomUploader, NostrBuildUploader } from '@nostrify/nostrify/uploader
 import { safeFetch } from '@soapbox/safe-fetch';
 
 import { AppMiddleware } from '@/app.ts';
-import { DenoUploader } from '@/uploaders/DenoUploader.ts';
-import { IPFSUploader } from '@/uploaders/IPFSUploader.ts';
-import { S3Uploader } from '@/uploaders/S3Uploader.ts';
+import { DenoUploader } from '../../uploaders/DenoUploader.ts';
+import { IPFSUploader } from '../../uploaders/IPFSUploader.ts';
+import { S3Uploader } from '../../uploaders/S3Uploader.ts';
 
 /** Set an uploader for the user. */
 export const uploaderMiddleware: AppMiddleware = async (c, next) => {

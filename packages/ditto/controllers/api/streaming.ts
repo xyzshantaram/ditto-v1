@@ -11,7 +11,7 @@ import { Kysely } from 'kysely';
 import { z } from 'zod';
 
 import { type AppController } from '@/app.ts';
-import { MuteListPolicy } from '@/policies/MuteListPolicy.ts';
+import { MuteListPolicy } from '../../../policies/MuteListPolicy.ts';
 import { getFeedPubkeys } from '@/queries.ts';
 import { AdminStore } from '@/storages/AdminStore.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';

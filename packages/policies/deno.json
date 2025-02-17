@@ -1,0 +1,6 @@
+{
+  "name": "@ditto/policies",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}

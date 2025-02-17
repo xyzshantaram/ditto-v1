@@ -6,8 +6,8 @@ import { NostrSigner, NRelay, NSecSigner } from '@nostrify/nostrify';
 import { Kysely } from 'kysely';
 import { nip19 } from 'nostr-tools';
 
-import { ConnectSigner } from '@/signers/ConnectSigner.ts';
-import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
+import { ConnectSigner } from '../../signers/ConnectSigner.ts';
+import { ReadOnlySigner } from '../../signers/ReadOnlySigner.ts';
 import { aesDecrypt } from '../../utils/aes.ts';
 import { getTokenHash } from '../../utils/auth.ts';
 

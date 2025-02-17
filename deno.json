@@ -5,9 +5,13 @@
     "./packages/conf",
     "./packages/db",
     "./packages/ditto",
+    "./packages/lang",
     "./packages/metrics",
+    "./packages/policies",
     "./packages/ratelimiter",
+    "./packages/signers",
     "./packages/translators",
+    "./packages/uploaders",
     "./packages/utils"
   ],
   "tasks": {

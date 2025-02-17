@@ -4,7 +4,7 @@ import { NostrFilter, NStore } from '@nostrify/nostrify';
 import { logi } from '@soapbox/logi';
 import { Kysely, sql } from 'kysely';
 
-import { AdminSigner } from '@/signers/AdminSigner.ts';
+import { AdminSigner } from '../signers/AdminSigner.ts';
 import { errorJson } from '../utils/log.ts';
 import { Time } from '../utils/time.ts';
 

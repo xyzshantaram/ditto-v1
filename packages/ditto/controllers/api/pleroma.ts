@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { type AppController } from '@/app.ts';
 import { configSchema, elixirTupleSchema } from '@/schemas/pleroma-api.ts';
-import { AdminSigner } from '@/signers/AdminSigner.ts';
+import { AdminSigner } from '../../../signers/AdminSigner.ts';
 import { createAdminEvent, updateAdminEvent, updateUser } from '../../../utils/api.ts';
 import { lookupPubkey } from '../../../utils/lookup.ts';
 import { getPleromaConfigs } from '../../../utils/pleroma.ts';

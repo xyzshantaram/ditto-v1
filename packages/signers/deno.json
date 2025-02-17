@@ -1,0 +1,6 @@
+{
+  "name": "@ditto/signers",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}

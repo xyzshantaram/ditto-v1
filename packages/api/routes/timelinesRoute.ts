@@ -1,32 +1,17 @@
-import { NostrFilter } from '@nostrify/nostrify';
+import { DittoRoute } from '@ditto/api';
 import { z } from 'zod';
 
-import { type AppContext, type AppController } from '@/app.ts';
-import { getFeedPubkeys } from '@/queries.ts';
-import { booleanParamSchema, languageSchema } from '@/schema.ts';
-import { hydrateEvents } from '@/storages/hydrate.ts';
-import { paginated } from '@/utils/api.ts';
-import { getTagSet } from '@/utils/tags.ts';
-import { StatusView } from '@/views/mastodon/StatusView.ts';
-import { Hono } from '@hono/hono';
+import type { NostrFilter } from '@nostrify/nostrify';
+
+const route = new DittoRoute();
 
 const homeQuerySchema = z.object({
   exclude_replies: booleanParamSchema.optional(),
   only_media: booleanParamSchema.optional(),
 });
 
-export interface TimelineRouteOpts {
-}
-
-export class TimelineRoute {
-  private app: Hono;
-
-  constructor(private opts: TimelineRouteOpts) {
-    this.app = new Hono();
-  }
-}
-
-const homeTimelineController: AppController = async (c) => {
+route.get('/home', async (c) => {
+  c.req.valid('json');
   const { user, pagination } = c.var;
 
   const pubkey = await user!.signer.getPublicKey()!;
@@ -56,7 +41,7 @@ const homeTimelineController: AppController = async (c) => {
   }
 
   return renderStatuses(c, [filter]);
-};
+});
 
 const publicQuerySchema = z.object({
   local: booleanParamSchema.default('false'),

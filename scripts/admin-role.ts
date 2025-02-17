@@ -2,7 +2,7 @@ import { DittoConf } from '@ditto/conf';
 import { NSchema } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
-import { AdminSigner } from '../packages/ditto/signers/AdminSigner.ts';
+import { AdminSigner } from '../packages/signers/AdminSigner.ts';
 import { DittoStorages } from '../packages/ditto/DittoStorages.ts';
 import { nostrNow } from '../packages/ditto/utils.ts';
 
