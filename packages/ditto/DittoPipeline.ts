@@ -16,7 +16,7 @@ import { type EventsDB } from '@/storages/EventsDB.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
 import { eventAge, Time } from '@/utils.ts';
 import { getAmount } from '@/utils/bolt11.ts';
-import { faviconCache } from '@/utils/favicon.ts';
+import { resolveFavicon } from '@/utils/favicon.ts';
 import { errorJson } from '@/utils/log.ts';
 import { resolveNip05 } from '@/utils/nip05.ts';
 import { parseNoteContent, stripimeta } from '@/utils/note.ts';
@@ -243,7 +243,7 @@ export class DittoPipeline {
     const domain = nip05?.split('@')[1].toLowerCase();
     if (domain) {
       try {
-        await faviconCache.fetch(domain, { signal });
+        await resolveFavicon({ ...this.opts, signal }, domain);
       } catch {
         // Fallthrough.
       }
