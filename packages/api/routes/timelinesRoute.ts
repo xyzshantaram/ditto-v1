@@ -18,7 +18,7 @@ const homeQuerySchema = z.object({
 route.get('/home', userMiddleware({ privileged: false, required: true }), async (c) => {
   const { user, pagination } = c.var;
 
-  const pubkey = await user?.signer.getPublicKey()!;
+  const pubkey = await user.signer.getPublicKey();
   const result = homeQuerySchema.safeParse(c.req.query());
 
   if (!result.success) {

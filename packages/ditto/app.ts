@@ -155,7 +155,7 @@ import { logiMiddleware } from '@/middleware/logiMiddleware.ts';
 const conf = new DittoConf(Deno.env);
 const storages = new DittoStorages(conf);
 
-const [kysely, store, pool, pubsub, db] = await Promise.all([
+const [kysely, relay, pool, pubsub, db] = await Promise.all([
   storages.kysely(),
   storages.db(),
   storages.pool(),
@@ -223,7 +223,7 @@ type AppMiddleware = MiddlewareHandler<AppEnv>;
 // deno-lint-ignore no-explicit-any
 type AppController<P extends string = any> = Handler<AppEnv, P, HonoInput, Response | Promise<Response>>;
 
-const app = new DittoApp({ conf, db, store }, { strict: false });
+const app = new DittoApp({ conf, db, relay }, { strict: false });
 
 /** User-provided files in the gitignored `public/` directory. */
 const publicFiles = serveStatic({ root: conf.publicDir });

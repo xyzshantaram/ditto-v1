@@ -108,21 +108,6 @@ export class DittoPgStore extends NPostgres {
     });
   }
 
-  protected matchesFilter(event: NostrEvent, filter: NostrFilter): boolean {
-    // TODO: support streaming by search.
-    return matchFilter(filter, event) && filter.search === undefined;
-  }
-
-  streamOut(event: NostrEvent): void {
-    for (const { filters, machina } of this.subs.values()) {
-      for (const filter of filters) {
-        if (this.matchesFilter(event, filter)) {
-          machina.push(event);
-        }
-      }
-    }
-  }
-
   /** Insert an event (and its tags) into the database. */
   override async event(event: NostrEvent, opts: { signal?: AbortSignal; timeout?: number } = {}): Promise<void> {
     event = purifyEvent(event);
@@ -148,6 +133,21 @@ export class DittoPgStore extends NPostgres {
         return;
       } else {
         throw e;
+      }
+    }
+  }
+
+  protected matchesFilter(event: NostrEvent, filter: NostrFilter): boolean {
+    // TODO: support streaming by search.
+    return matchFilter(filter, event) && filter.search === undefined;
+  }
+
+  protected streamOut(event: NostrEvent): void {
+    for (const { filters, machina } of this.subs.values()) {
+      for (const filter of filters) {
+        if (this.matchesFilter(event, filter)) {
+          machina.push(event);
+        }
       }
     }
   }
@@ -257,7 +257,7 @@ export class DittoPgStore extends NPostgres {
   /** Get events for filters from the database. */
   override async query(
     filters: NostrFilter[],
-    opts: { signal?: AbortSignal; timeout?: number; limit?: number } = {},
+    opts: { signal?: AbortSignal; pure?: boolean; timeout?: number; limit?: number } = {},
   ): Promise<DittoEvent[]> {
     filters = await this.expandFilters(filters);
 

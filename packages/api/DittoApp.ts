@@ -13,7 +13,7 @@ export class DittoApp extends Hono<DittoEnv> {
     this.use((c, next) => {
       c.set('db', vars.db);
       c.set('conf', vars.conf);
-      c.set('store', vars.store);
+      c.set('relay', vars.relay);
       c.set('signal', c.req.raw.signal);
       return next();
     });
