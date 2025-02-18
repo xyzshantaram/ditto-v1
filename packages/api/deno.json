@@ -4,7 +4,7 @@
   "exports": {
     ".": "./mod.ts",
     "./middleware": "./middleware/mod.ts",
-    "./pagination": "./pagination.ts",
+    "./pagination": "./pagination/mod.ts",
     "./routes": "./routes/mod.ts",
     "./schema": "./schema.ts",
     "./views": "./views/mod.ts"

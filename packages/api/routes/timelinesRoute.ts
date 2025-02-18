@@ -1,18 +1,21 @@
 import { DittoRoute } from '@ditto/api';
-import { userMiddleware } from '@ditto/api/middleware';
+import { paginationMiddleware, userMiddleware } from '@ditto/api/middleware';
 import { booleanParamSchema, languageSchema } from '@ditto/api/schema';
+import { getTagSet } from '@ditto/utils/tags';
 import { z } from 'zod';
 
+import type { Context } from '@hono/hono';
 import type { NostrFilter } from '@nostrify/nostrify';
+import type { DittoEnv } from '../DittoEnv.ts';
 
-const route = new DittoRoute().use(userMiddleware({ privileged: false, required: true }));
+const route = new DittoRoute().use(paginationMiddleware());
 
 const homeQuerySchema = z.object({
   exclude_replies: booleanParamSchema.optional(),
   only_media: booleanParamSchema.optional(),
 });
 
-route.get('/home', async (c) => {
+route.get('/home', userMiddleware({ privileged: false, required: true }), async (c) => {
   const { user, pagination } = c.var;
 
   const pubkey = await user?.signer.getPublicKey()!;
@@ -50,7 +53,7 @@ const publicQuerySchema = z.object({
   language: languageSchema.optional(),
 });
 
-const publicTimelineController: AppController = (c) => {
+route.get('/public', (c) => {
   const { conf, pagination } = c.var;
   const result = publicQuerySchema.safeParse(c.req.query());
 
@@ -79,30 +82,29 @@ const publicTimelineController: AppController = (c) => {
   }
 
   return renderStatuses(c, [filter]);
-};
+});
 
-const hashtagTimelineController: AppController = (c) => {
+route.get('/tag/:hashtag', (c) => {
   const { pagination } = c.var;
-  const hashtag = c.req.param('hashtag')!.toLowerCase();
+  const hashtag = c.req.param('hashtag').toLowerCase();
+
   return renderStatuses(c, [{ kinds: [1, 20], '#t': [hashtag], ...pagination }]);
-};
+});
 
-const suggestedTimelineController: AppController = async (c) => {
-  const { conf } = c.var;
-  const store = c.get('store');
-  const params = c.get('pagination');
+route.get('/suggested', async (c) => {
+  const { conf, relay, pagination } = c.var;
 
-  const [follows] = await store.query(
+  const [follows] = await relay.query(
     [{ kinds: [3], authors: [conf.pubkey], limit: 1 }],
   );
 
   const authors = [...getTagSet(follows?.tags ?? [], 'p')];
 
-  return renderStatuses(c, [{ authors, kinds: [1, 20], ...params }]);
-};
+  return renderStatuses(c, [{ authors, kinds: [1, 20], ...pagination }]);
+});
 
 /** Render statuses for timelines. */
-async function renderStatuses(c: AppContext, filters: NostrFilter[]) {
+async function renderStatuses(c: Context<DittoEnv>, filters: NostrFilter[]) {
   const { conf, store, user, signal } = c.var;
   const opts = { signal, timeout: conf.db.timeouts.timelines };
 
