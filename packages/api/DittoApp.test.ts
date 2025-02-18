@@ -9,9 +9,9 @@ import { DittoRoute } from './DittoRoute.ts';
 Deno.test('DittoApp', async () => {
   await using db = DittoDB.create('memory://');
   const conf = new DittoConf(new Map());
-  const store = new MockRelay();
+  const relay = new MockRelay();
 
-  const app = new DittoApp({ conf, db, store });
+  const app = new DittoApp({ conf, db, relay });
 
   const hono = new Hono();
   const route = new DittoRoute();

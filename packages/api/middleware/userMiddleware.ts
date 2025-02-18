@@ -8,16 +8,10 @@ import type { DittoMiddleware } from '../DittoMiddleware.ts';
 
 interface User {
   signer: NostrSigner;
-  store: NStore;
+  relay: NStore;
 }
 
-interface UserMiddlewareOpts {
-  /** Returns a 401 response if no user can be determined. */
-  required?: boolean;
-  /** Whether the user must prove themselves with a NIP-98 auth challenge. */
-  privileged: boolean;
-}
-
+// @ts-ignore The types are right.
 export function userMiddleware(opts: { privileged: false; required: true }): DittoMiddleware<{ user: User }>;
 export function userMiddleware(opts: { privileged: true; required?: boolean }): DittoMiddleware<{ user: User }>;
 export function userMiddleware(opts: { privileged: false; required?: boolean }): DittoMiddleware<{ user?: User }>;
@@ -28,7 +22,7 @@ export function userMiddleware(opts: { privileged: boolean; required?: boolean }
   const { privileged, required = false } = opts;
 
   return async (c, next) => {
-    const { conf, db, store } = c.var;
+    const { conf, db, relay } = c.var;
 
     const header = c.req.header('authorization');
     const match = header?.match(BEARER_REGEX);
@@ -55,7 +49,7 @@ export function userMiddleware(opts: { privileged: boolean; required?: boolean }
             userPubkey,
             signer: new NSecSigner(nep46Seckey),
             relays: nip46_relays,
-            relay: store,
+            relay,
           });
         } catch {
           throw new HTTPException(401);
@@ -82,9 +76,9 @@ export function userMiddleware(opts: { privileged: boolean; required?: boolean }
     }
 
     if (signer) {
-      const user: User = { signer, store };
+      const user: User = { signer, relay };
       c.set('user', user);
-    } else if (required) {
+    } else if (privileged || required) {
       throw new HTTPException(401);
     }
 

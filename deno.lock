@@ -99,6 +99,7 @@
     "npm:@scure/base@^1.1.6": "1.1.6",
     "npm:@scure/bip32@^1.4.0": "1.4.0",
     "npm:@scure/bip39@^1.3.0": "1.3.0",
+    "npm:@types/http-link-header@*": "1.0.7",
     "npm:@types/node@*": "22.5.4",
     "npm:blurhash@2.0.5": "2.0.5",
     "npm:comlink-async-generator@*": "0.0.1",
@@ -109,6 +110,7 @@
     "npm:fast-stable-stringify@1": "1.0.0",
     "npm:formdata-helper@0.3": "0.3.0",
     "npm:hono-rate-limiter@0.3": "0.3.0_hono@4.2.5",
+    "npm:http-link-header@*": "1.1.3",
     "npm:iso-639-1@^3.1.5": "3.1.5",
     "npm:isomorphic-dompurify@^2.16.0": "2.16.0",
     "npm:kysely-postgres-js@2.0.0": "2.0.0_kysely@0.27.3_postgres@3.4.4",
@@ -994,6 +996,12 @@
         "@types/trusted-types"
       ]
     },
+    "@types/http-link-header@1.0.7": {
+      "integrity": "sha512-snm5oLckop0K3cTDAiBnZDy6ncx9DJ3mCRDvs42C884MbVYPP74Tiq2hFsSDRTyjK6RyDYDIulPiW23ge+g5Lw==",
+      "dependencies": [
+        "@types/node"
+      ]
+    },
     "@types/node@22.5.4": {
       "integrity": "sha512-FDuKUJQm/ju9fT/SeX/6+gBzoPzlVCzfzmGkwKvRHQVxi4BntVbyIwf6a4Xn62mrvndLiml6z/UBXIdEVjQLXg==",
       "dependencies": [
@@ -1254,6 +1262,9 @@
         "domutils",
         "entities"
       ]
+    },
+    "http-link-header@1.1.3": {
+      "integrity": "sha512-3cZ0SRL8fb9MUlU3mKM61FcQvPfXx2dBrZW3Vbg5CXa8jFlK8OaEpePenLe1oEXQduhz8b0QjsqfS59QP4AJDQ=="
     },
     "http-proxy-agent@7.0.2": {
       "integrity": "sha512-T1gkAiYYDWYx3V5Bmyu7HcfcvL7mUrTWiM6yOfa3PIphViJ/gFPbvidQ+veqSOHci/PxBcDabeUNCzpOODJZig==",

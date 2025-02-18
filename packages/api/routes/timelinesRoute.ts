@@ -1,21 +1,21 @@
 import { DittoRoute } from '@ditto/api';
-import { requireVar, userMiddleware } from '@ditto/api/middleware';
+import { userMiddleware } from '@ditto/api/middleware';
 import { booleanParamSchema, languageSchema } from '@ditto/api/schema';
 import { z } from 'zod';
 
 import type { NostrFilter } from '@nostrify/nostrify';
 
-const route = new DittoRoute();
+const route = new DittoRoute().use(userMiddleware({ privileged: false, required: true }));
 
 const homeQuerySchema = z.object({
   exclude_replies: booleanParamSchema.optional(),
   only_media: booleanParamSchema.optional(),
 });
 
-route.get('/home', requireVar('user'), async (c) => {
+route.get('/home', async (c) => {
   const { user, pagination } = c.var;
 
-  const pubkey = await user.signer.getPublicKey()!;
+  const pubkey = await user?.signer.getPublicKey()!;
   const result = homeQuerySchema.safeParse(c.req.query());
 
   if (!result.success) {
