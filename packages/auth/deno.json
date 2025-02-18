@@ -1,0 +1,6 @@
+{
+  "name": "@ditto/auth",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}

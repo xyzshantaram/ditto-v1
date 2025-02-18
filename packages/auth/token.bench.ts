@@ -1,4 +1,4 @@
-import { generateToken, getTokenHash } from './auth.ts';
+import { generateToken, getTokenHash } from './token.ts';
 
 Deno.bench('generateToken', async () => {
   await generateToken();

@@ -1,6 +1,7 @@
 {
   "name": "@ditto/utils",
   "exports": {
+    "./auth": "./auth.ts",
     "./tags": "./tags.ts"
   }
 }

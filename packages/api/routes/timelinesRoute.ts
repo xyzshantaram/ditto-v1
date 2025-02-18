@@ -1,4 +1,6 @@
 import { DittoRoute } from '@ditto/api';
+import { userMiddleware } from '@ditto/api/middleware';
+import { booleanParamSchema, languageSchema } from '@ditto/api/schema';
 import { z } from 'zod';
 
 import type { NostrFilter } from '@nostrify/nostrify';
@@ -11,10 +13,9 @@ const homeQuerySchema = z.object({
 });
 
 route.get('/home', async (c) => {
-  c.req.valid('json');
   const { user, pagination } = c.var;
 
-  const pubkey = await user!.signer.getPublicKey()!;
+  const pubkey = await user.signer.getPublicKey()!;
   const result = homeQuerySchema.safeParse(c.req.query());
 
   if (!result.success) {
@@ -123,4 +124,4 @@ async function renderStatuses(c: AppContext, filters: NostrFilter[]) {
   return paginated(c, events, statuses);
 }
 
-export { hashtagTimelineController, homeTimelineController, publicTimelineController, suggestedTimelineController };
+export { route as timelinesRoute };

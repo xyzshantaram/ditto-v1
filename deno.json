@@ -2,6 +2,7 @@
   "version": "1.1.0",
   "workspace": [
     "./packages/api",
+    "./packages/auth",
     "./packages/conf",
     "./packages/db",
     "./packages/ditto",
@@ -10,6 +11,7 @@
     "./packages/policies",
     "./packages/ratelimiter",
     "./packages/signers",
+    "./packages/storages",
     "./packages/translators",
     "./packages/uploaders",
     "./packages/utils"

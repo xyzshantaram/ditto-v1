@@ -1,10 +1,8 @@
+import { getTagSet } from '@ditto/utils/tags';
 import { NostrEvent, NostrFilter, NStore } from '@nostrify/nostrify';
 
-import { DittoEvent } from '@/interfaces/DittoEvent.ts';
-import { getTagSet } from '../../utils/tags.ts';
-
 export class UserStore implements NStore {
-  private promise: Promise<DittoEvent[]> | undefined;
+  private promise: Promise<NostrEvent[]> | undefined;
 
   constructor(private pubkey: string, private store: NStore) {}
 
@@ -16,7 +14,7 @@ export class UserStore implements NStore {
    * Query events that `pubkey` did not mute
    * https://github.com/nostr-protocol/nips/blob/master/51.md#standard-lists
    */
-  async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}): Promise<DittoEvent[]> {
+  async query(filters: NostrFilter[], opts: { signal?: AbortSignal } = {}): Promise<NostrEvent[]> {
     const events = await this.store.query(filters, opts);
     const pubkeys = await this.getMutedPubkeys();
 
@@ -25,7 +23,7 @@ export class UserStore implements NStore {
     });
   }
 
-  private async getMuteList(): Promise<DittoEvent | undefined> {
+  private async getMuteList(): Promise<NostrEvent | undefined> {
     if (!this.promise) {
       this.promise = this.store.query([{ authors: [this.pubkey], kinds: [10000], limit: 1 }]);
     }
