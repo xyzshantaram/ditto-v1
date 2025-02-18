@@ -1,5 +1,5 @@
 import { DittoRoute } from '@ditto/api';
-import { userMiddleware } from '@ditto/api/middleware';
+import { requireVar, userMiddleware } from '@ditto/api/middleware';
 import { booleanParamSchema, languageSchema } from '@ditto/api/schema';
 import { z } from 'zod';
 
@@ -12,7 +12,7 @@ const homeQuerySchema = z.object({
   only_media: booleanParamSchema.optional(),
 });
 
-route.get('/home', async (c) => {
+route.get('/home', requireVar('user'), async (c) => {
   const { user, pagination } = c.var;
 
   const pubkey = await user.signer.getPublicKey()!;

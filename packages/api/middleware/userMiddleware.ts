@@ -18,13 +18,14 @@ interface UserMiddlewareOpts {
   privileged: boolean;
 }
 
-// @ts-ignore The types are right.
-export function userMiddleware(opts: { privileged: boolean; required: true }): DittoMiddleware<{ user: User }>;
+export function userMiddleware(opts: { privileged: false; required: true }): DittoMiddleware<{ user: User }>;
 export function userMiddleware(opts: { privileged: true; required?: boolean }): DittoMiddleware<{ user: User }>;
 export function userMiddleware(opts: { privileged: false; required?: boolean }): DittoMiddleware<{ user?: User }>;
-export function userMiddleware(opts: { privileged?: boolean; required?: boolean }): DittoMiddleware<{ user?: User }> {
+export function userMiddleware(opts: { privileged: boolean; required?: boolean }): DittoMiddleware<{ user?: User }> {
   /** We only accept "Bearer" type. */
   const BEARER_REGEX = new RegExp(`^Bearer (${nip19.BECH32_REGEX.source})$`);
+
+  const { privileged, required = false } = opts;
 
   return async (c, next) => {
     const { conf, db, store } = c.var;
@@ -83,7 +84,7 @@ export function userMiddleware(opts: { privileged?: boolean; required?: boolean 
     if (signer) {
       const user: User = { signer, store };
       c.set('user', user);
-    } else {
+    } else if (required) {
       throw new HTTPException(401);
     }
 

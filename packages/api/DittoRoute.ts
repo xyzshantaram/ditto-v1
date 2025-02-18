@@ -27,6 +27,7 @@ export class DittoRoute extends Hono<DittoEnv> {
     if (!vars.signal) this.throwMissingVar('signal');
 
     return {
+      ...vars,
       db: vars.db,
       conf: vars.conf,
       store: vars.store,
