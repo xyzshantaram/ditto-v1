@@ -1,8 +1,8 @@
 import { DittoConf } from '@ditto/conf';
+import { detectLanguage } from '@ditto/lang';
 import { assert, assertEquals } from '@std/assert';
 
-import { DeepLTranslator } from '@/translators/DeepLTranslator.ts';
-import { getLanguage } from '@/test.ts';
+import { DeepLTranslator } from './DeepLTranslator.ts';
 
 const {
   deeplBaseUrl: baseUrl,
@@ -28,9 +28,9 @@ Deno.test('DeepL translation with source language omitted', {
   );
 
   assertEquals(data.source_lang, 'pt');
-  assertEquals(getLanguage(data.results[0]), 'en');
-  assertEquals(getLanguage(data.results[1]), 'en');
-  assertEquals(getLanguage(data.results[2]), 'en');
+  assertEquals(detectLanguage(data.results[0], 0), 'en');
+  assertEquals(detectLanguage(data.results[1], 0), 'en');
+  assertEquals(detectLanguage(data.results[2], 0), 'en');
 });
 
 Deno.test('DeepL translation with source language set', {
@@ -49,9 +49,9 @@ Deno.test('DeepL translation with source language set', {
   );
 
   assertEquals(data.source_lang, 'pt');
-  assertEquals(getLanguage(data.results[0]), 'en');
-  assertEquals(getLanguage(data.results[1]), 'en');
-  assertEquals(getLanguage(data.results[2]), 'en');
+  assertEquals(detectLanguage(data.results[0], 0), 'en');
+  assertEquals(detectLanguage(data.results[1], 0), 'en');
+  assertEquals(detectLanguage(data.results[2], 0), 'en');
 });
 
 Deno.test("DeepL translation doesn't alter Nostr URIs", {

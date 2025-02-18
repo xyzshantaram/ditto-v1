@@ -139,7 +139,11 @@ import { metricsController } from '@/controllers/metrics.ts';
 import { manifestController } from '@/controllers/manifest.ts';
 import { nodeInfoController, nodeInfoSchemaController } from '@/controllers/well-known/nodeinfo.ts';
 import { nostrController } from '@/controllers/well-known/nostr.ts';
+<<<<<<< HEAD
 import { requireProof, requireRole } from '@/middleware/auth98Middleware.ts';
+=======
+import { auth98Middleware, requireProof, requireRole } from '@/middleware/auth98Middleware.ts';
+>>>>>>> origin/main
 import { cacheControlMiddleware } from '@/middleware/cacheControlMiddleware.ts';
 import { cspMiddleware } from '@/middleware/cspMiddleware.ts';
 import { metricsMiddleware } from '@/middleware/metricsMiddleware.ts';
