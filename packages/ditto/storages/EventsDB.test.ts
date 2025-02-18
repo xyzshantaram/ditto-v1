@@ -7,6 +7,26 @@ import { eventFixture, genEvent } from '@/test.ts';
 import { EventsDB } from '@/storages/EventsDB.ts';
 import { createTestDB } from '@/test.ts';
 
+Deno.test('InternalRelay', async () => {
+  await using db = await createTestDB({ pure: true });
+  const { store: relay } = db;
+
+  const event1 = await eventFixture('event-1');
+
+  const promise = new Promise((resolve) => setTimeout(() => resolve(relay.event(event1)), 0));
+
+  for await (const msg of relay.req([{}])) {
+    if (msg[0] === 'EVENT') {
+      assertEquals(relay.subs.size, 1);
+      assertEquals(msg[2], event1);
+      break;
+    }
+  }
+
+  await promise;
+  assertEquals(relay.subs.size, 0); // cleanup
+});
+
 Deno.test('count filters', async () => {
   await using db = await createTestDB({ pure: true });
   const { store } = db;
