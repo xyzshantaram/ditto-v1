@@ -1,11 +1,13 @@
-import { AdminSigner } from '@/signers/AdminSigner.ts';
+import { DittoConf } from '@ditto/conf';
+import { DittoPolyPg } from '@ditto/db';
 import { Command } from 'commander';
 import { NostrEvent } from 'nostr-tools';
-import { nostrNow } from '@/utils.ts';
-import { Buffer } from 'node:buffer';
-import { Conf } from '@/config.ts';
-import pngToIco from 'png-to-ico';
-import { Storages } from '@/storages.ts';
+
+import { DittoPgStore } from '../packages/ditto/storages/DittoPgStore.ts';
+
+const conf = new DittoConf(Deno.env);
+const db = new DittoPolyPg(conf.databaseUrl);
+const relay = new DittoPgStore({ db, pubkey: await conf.signer.getPublicKey() });
 
 function die(code: number, ...args: unknown[]) {
   console.error(...args);
@@ -26,7 +28,6 @@ if (import.meta.main) {
       'Lightning address for the server. Can just be your own lightning address.',
     )
     .option('-a --about <string>', 'About text. This shows up whenever a description for your server is needed.')
-    .option('-i --image <string>', 'Image URL to use for OpenGraph previews and favicon.')
     .action(async (name, args) => {
       const { lightning, about, image } = args;
       const content: Record<string, string | boolean> = {};
@@ -36,34 +37,19 @@ if (import.meta.main) {
       content.lud16 = lightning;
       content.name = name;
       content.picture = image;
-      content.website = Conf.localDomain;
+      content.website = conf.localDomain;
 
-      const signer = new AdminSigner();
+      const signer = conf.signer;
       const bare: Omit<NostrEvent, 'id' | 'sig' | 'pubkey'> = {
-        created_at: nostrNow(),
         kind: 0,
         tags: [],
         content: JSON.stringify(content),
+        created_at: Math.floor(Date.now() / 1000),
       };
       const signed = await signer.signEvent(bare);
-      if (image) {
-        try {
-          await fetch(image)
-            .then((res) => {
-              if (!res.ok) throw new Error('Error attempting to fetch favicon.');
-              if (res.headers.get('content-type') !== 'image/png') throw new Error('Non-png images are not supported!');
-              return res.blob();
-            })
-            .then(async (blob) =>
-              await pngToIco(Buffer.from(await blob.arrayBuffer()))
-                .then(async (buf) => await Deno.writeFile('./public/favicon.ico', new Uint8Array(buf)))
-            );
-        } catch (e) {
-          die(1, `Error generating favicon from url ${image}: "${e}". Please check this or try again without --image.`);
-        }
-      }
+
       console.log({ content, signed });
-      await Storages.db().then((store) => store.event(signed));
+      await relay.event(signed);
     });
 
   await kind0.parseAsync();

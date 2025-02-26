@@ -1,0 +1,13 @@
+{
+  "name": "@ditto/ditto",
+  "exports": {},
+  "imports": {
+    "@/": "./",
+    "deno.json": "../../deno.json"
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["verbatim-module-syntax"]
+    }
+  }
+}
