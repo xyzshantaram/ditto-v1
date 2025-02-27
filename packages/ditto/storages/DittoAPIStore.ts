@@ -47,6 +47,14 @@ export class DittoAPIStore implements NRelay {
     })();
   }
 
+  remove(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<void> {
+    const { relay } = this.opts;
+    if (!relay.remove) {
+      return Promise.reject(new Error("Method not 'remove' not available."));
+    }
+    return relay.remove(filters, opts);
+  }
+
   async close(): Promise<void> {
     const { pool, relay } = this.opts;
 
