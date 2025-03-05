@@ -1,5 +1,6 @@
 import { Semaphore } from '@core/asyncutil';
 import { NostrEvent } from '@nostrify/nostrify';
+import { MockRelay } from '@nostrify/nostrify/test';
 
 import { DittoConf } from '@ditto/conf';
 import { DittoPolyPg } from '@ditto/db';
@@ -10,8 +11,8 @@ import { DittoRelayStore } from '../packages/ditto/storages/DittoRelayStore.ts';
 const conf = new DittoConf(Deno.env);
 const db = new DittoPolyPg(conf.databaseUrl);
 
-const pgstore = new DittoPgStore({ db, pubkey: await conf.signer.getPublicKey() });
-const relaystore = new DittoRelayStore({ conf, db, relay: pgstore });
+const pgstore = new DittoPgStore({ db, conf });
+const relaystore = new DittoRelayStore({ conf, db, pool: new MockRelay(), relay: pgstore });
 
 const sem = new Semaphore(5);
 

@@ -13,7 +13,17 @@ import { mergeURLPath } from './utils/url.ts';
 
 /** Ditto application-wide configuration. */
 export class DittoConf {
-  constructor(private env: { get(key: string): string | undefined }) {}
+  constructor(private env: { get(key: string): string | undefined }) {
+    if (this.precheck) {
+      const mediaUrl = new URL(this.mediaDomain);
+
+      if (this.url.host === mediaUrl.host) {
+        throw new Error(
+          'For security reasons, MEDIA_DOMAIN cannot be on the same host as LOCAL_DOMAIN.\n\nTo disable this check, set DITTO_PRECHECK="false"',
+        );
+      }
+    }
+  }
 
   /** Cached parsed admin signer. */
   private _signer: NSecSigner | undefined;
@@ -269,6 +279,11 @@ export class DittoConf {
     return optionalBooleanSchema.parse(this.env.get('MEDIA_ANALYZE')) ?? false;
   }
 
+  /** Whether to transcode uploaded video files with ffmpeg. */
+  get mediaTranscode(): boolean {
+    return optionalBooleanSchema.parse(this.env.get('MEDIA_TRANSCODE')) ?? false;
+  }
+
   /** Max upload size for files in number of bytes. Default 100MiB. */
   get maxUploadSize(): number {
     return Number(this.env.get('MAX_UPLOAD_SIZE') || 100 * 1024 * 1024);
@@ -464,5 +479,20 @@ export class DittoConf {
   /** Maximum time between events before a streak is broken, *in seconds*. */
   get streakWindow(): number {
     return Number(this.env.get('STREAK_WINDOW') || 129600);
+  }
+
+  /** Whether to perform security/configuration checks on startup. */
+  get precheck(): boolean {
+    return optionalBooleanSchema.parse(this.env.get('DITTO_PRECHECK')) ?? true;
+  }
+
+  /** Path to `ffmpeg` executable. */
+  get ffmpegPath(): string {
+    return this.env.get('FFMPEG_PATH') || 'ffmpeg';
+  }
+
+  /** Path to `ffprobe` executable. */
+  get ffprobePath(): string {
+    return this.env.get('FFPROBE_PATH') || 'ffprobe';
   }
 }

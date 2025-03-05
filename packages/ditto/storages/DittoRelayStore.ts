@@ -28,7 +28,7 @@ import { DittoPush } from '@/DittoPush.ts';
 import { DittoEvent } from '@/interfaces/DittoEvent.ts';
 import { RelayError } from '@/RelayError.ts';
 import { hydrateEvents } from '@/storages/hydrate.ts';
-import { eventAge, nostrNow, Time } from '@/utils.ts';
+import { eventAge, isNostrId, nostrNow, Time } from '@/utils.ts';
 import { getAmount } from '@/utils/bolt11.ts';
 import { errorJson } from '@/utils/log.ts';
 import { purifyEvent } from '@/utils/purify.ts';
@@ -46,6 +46,7 @@ import { nip19 } from 'nostr-tools';
 interface DittoRelayStoreOpts {
   db: DittoDB;
   conf: DittoConf;
+  pool: NRelay;
   relay: NRelay;
   fetch?: typeof fetch;
 }
@@ -192,7 +193,12 @@ export class DittoRelayStore implements NRelay {
         this.prewarmLinkPreview(event, signal),
         this.generateSetEvents(event),
       ])
-        .then(() => this.webPush(event))
+        .then(() =>
+          Promise.allSettled([
+            this.webPush(event),
+            this.fetchRelated(event),
+          ])
+        )
         .catch(() => {});
     }
   }
@@ -323,8 +329,42 @@ export class DittoRelayStore implements NRelay {
     }
   }
 
+  private async fetchRelated(event: NostrEvent): Promise<void> {
+    const ids = new Set<string>();
+
+    for (const tag of event.tags) {
+      const [name, value] = tag;
+
+      if ((name === 'e' || name === 'q') && isNostrId(value) && !this.encounters.has(value)) {
+        ids.add(value);
+      }
+    }
+
+    const { db, pool } = this.opts;
+
+    if (ids.size) {
+      const query = db.kysely
+        .selectFrom('nostr_events')
+        .select('id')
+        .where('id', 'in', [...ids]);
+
+      for (const row of await query.execute().catch(() => [])) {
+        ids.delete(row.id);
+      }
+    }
+
+    if (ids.size) {
+      const signal = AbortSignal.timeout(1000);
+
+      for (const event of await pool.query([{ ids: [...ids] }], { signal }).catch(() => [])) {
+        await this.event(event).catch(() => {});
+      }
+    }
+  }
+
   private async prewarmLinkPreview(event: NostrEvent, signal?: AbortSignal): Promise<void> {
-    const { firstUrl } = parseNoteContent(stripimeta(event.content, event.tags), []);
+    const { firstUrl } = parseNoteContent(stripimeta(event.content, event.tags), [], this.opts);
+
     if (firstUrl) {
       await unfurlCardCached(firstUrl, signal);
     }
@@ -357,19 +397,24 @@ export class DittoRelayStore implements NRelay {
     }
 
     if (event.kind === 3036 && tagsAdmin) {
-      const rel = await signer.signEvent({
-        kind: 30383,
-        content: '',
-        tags: [
-          ['d', event.id],
-          ['p', event.pubkey],
-          ['k', '3036'],
-          ['n', 'pending'],
-        ],
-        created_at: Math.floor(Date.now() / 1000),
-      });
+      const r = event.tags.find(([name]) => name === 'r')?.[1];
 
-      await this.event(rel, { signal: AbortSignal.timeout(1000) });
+      if (r) {
+        const rel = await signer.signEvent({
+          kind: 30383,
+          content: '',
+          tags: [
+            ['d', event.id],
+            ['p', event.pubkey],
+            ['k', '3036'],
+            ['r', r.toLowerCase()],
+            ['n', 'pending'],
+          ],
+          created_at: Math.floor(Date.now() / 1000),
+        });
+
+        await this.event(rel, { signal: AbortSignal.timeout(1000) });
+      }
     }
   }
 
