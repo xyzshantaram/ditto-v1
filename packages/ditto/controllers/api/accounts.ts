@@ -510,7 +510,7 @@ const favouritesController: AppController = async (c) => {
 };
 
 const unfavouriteController: AppController = async (c) => {
-  const { relay, user, signal } = c.var
+  const { relay, user, signal } = c.var;
   const id = c.req.param('id');
   const pubkey = await user!.signer.getPublicKey();
 
@@ -532,13 +532,14 @@ const unfavouriteController: AppController = async (c) => {
         kind: 5,
         tags: [
           ['e', e.id],
+          ['k', '7'],
         ],
         content: 'unfavourite',
       }, c);
     }
   }
 
-  await hydrateEvents({ ...c.var, events: [event], relay, signal })
+  await hydrateEvents({ ...c.var, events: [event], relay, signal });
 
   const status = await renderStatus(relay, event, { viewerPubkey: pubkey });
 
