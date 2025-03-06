@@ -509,6 +509,42 @@ const favouritesController: AppController = async (c) => {
   return paginated(c, events1, statuses);
 };
 
+const unfavouriteController: AppController = async (c) => {
+  const { relay, user, signal } = c.var
+  const id = c.req.param('id');
+  const pubkey = await user!.signer.getPublicKey();
+
+  const [event] = await relay.query([{ ids: [id], kinds: [1] }], { signal });
+  if (!event) {
+    return c.json({ error: 'Record not found.' }, 404);
+  }
+
+  const favouriteEvents = await relay.query([
+    { kinds: [7], authors: [pubkey], '#e': [id] },
+  ]);
+  if (!favouriteEvents.length) {
+    return c.json({ error: 'Record not found.' }, 404);
+  }
+
+  for (const e of favouriteEvents) {
+    if (e.content === '+') {
+      await createEvent({
+        kind: 5,
+        tags: [
+          ['e', e.id],
+        ],
+        content: 'unfavourite',
+      }, c);
+    }
+  }
+
+  await hydrateEvents({ ...c.var, events: [event], relay, signal })
+
+  const status = await renderStatus(relay, event, { viewerPubkey: pubkey });
+
+  return c.json(status);
+};
+
 const familiarFollowersController: AppController = async (c) => {
   const { relay, user, signal } = c.var;
 
@@ -560,6 +596,7 @@ export {
   muteController,
   relationshipsController,
   unblockController,
+  unfavouriteController,
   unfollowController,
   unmuteController,
   updateCredentialsController,
