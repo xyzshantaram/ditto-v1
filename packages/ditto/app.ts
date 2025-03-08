@@ -34,6 +34,7 @@ import {
   muteController,
   relationshipsController,
   unblockController,
+  unfavouriteController,
   unfollowController,
   unmuteController,
   updateCredentialsController,
@@ -357,6 +358,7 @@ app.get('/api/v1/statuses/:id{[0-9a-f]{64}}/reblogged_by', rebloggedByController
 app.get('/api/v1/statuses/:id{[0-9a-f]{64}}/context', contextController);
 app.get('/api/v1/statuses/:id{[0-9a-f]{64}}', statusController);
 app.post('/api/v1/statuses/:id{[0-9a-f]{64}}/favourite', userMiddleware(), favouriteController);
+app.post('/api/v1/statuses/:id{[0-9a-f]{64}}/unfavourite', userMiddleware(), unfavouriteController);
 app.post('/api/v1/statuses/:id{[0-9a-f]{64}}/bookmark', userMiddleware(), bookmarkController);
 app.post('/api/v1/statuses/:id{[0-9a-f]{64}}/unbookmark', userMiddleware(), unbookmarkController);
 app.post('/api/v1/statuses/:id{[0-9a-f]{64}}/pin', userMiddleware(), pinController);
