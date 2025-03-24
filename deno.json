@@ -17,7 +17,7 @@
   ],
   "tasks": {
     "start": "deno run -A --env-file --deny-read=.env packages/ditto/server.ts",
-    "dev": "deno run -A --env-file --deny-read=.env --watch packages/ditto/server.ts",
+    "dev": "deno run -A --env-file --watch packages/ditto/server.ts",
     "hook": "deno run --allow-read --allow-run --allow-write https://deno.land/x/deno_hooks@0.1.1/mod.ts",
     "db:export": "deno run -A --env-file --deny-read=.env scripts/db-export.ts",
     "db:import": "deno run -A --env-file --deny-read=.env scripts/db-import.ts",

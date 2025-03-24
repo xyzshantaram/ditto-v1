@@ -15,13 +15,52 @@ const features = [
   'v2_suggestions',
 ];
 
+const cache = (f: () => (number | undefined) | Promise<number | undefined>, interval: number) => {
+  let lastCheck = Date.now();
+  let value: number | undefined = undefined;
+
+  return async () => {
+    const now = Date.now();
+    if (value === null || now - lastCheck > interval) {
+      lastCheck = now;
+      value = await f();
+    }
+    console.log('error', value);
+    return Number(value || 0);
+  }
+}
+
 const instanceV1Controller: AppController = async (c) => {
-  const { conf } = c.var;
+  const { conf, db } = c.var;
   const { host, protocol } = conf.url;
   const meta = await getInstanceMetadata(c.var);
 
   /** Protocol to use for WebSocket URLs, depending on the protocol of the `LOCAL_DOMAIN`. */
   const wsProtocol = protocol === 'http:' ? 'ws:' : 'wss:';
+  const MINS_10 = 10 * 60 * 1000;
+
+  const userCount = cache(async () => {
+    return await db.kysely
+      .selectFrom('author_stats')
+      .where('nip05_domain', '=', host)
+      .select(({ fn }) => fn.count<number>('pubkey').distinct().as('users'))
+      .executeTakeFirst().then(obj => obj?.users || 0);
+  }, MINS_10);
+
+  const domainCount = cache(async () => {
+    return await db.kysely
+      .selectFrom('author_stats')
+      .select(({ fn }) => fn.count<number>('nip05_domain').distinct().as('domains'))
+      .executeTakeFirst().then(obj => obj?.domains || 0);
+  }, MINS_10);
+
+  const statusCount = cache(async () => {
+    return await db.kysely
+      .selectFrom('nostr_events')
+      .where('kind', '=', 1)
+      .select(({ fn }) => fn.countAll<number>().as('events'))
+      .executeTakeFirst().then(obj => obj?.events || 0);
+  }, MINS_10);
 
   return c.json({
     uri: host,
@@ -58,9 +97,9 @@ const instanceV1Controller: AppController = async (c) => {
     },
     languages: ['en'],
     stats: {
-      domain_count: 0,
-      status_count: 0,
-      user_count: 0,
+      domain_count: await domainCount(),
+      status_count: await statusCount(),
+      user_count: await userCount(),
     },
     urls: {
       streaming_api: `${wsProtocol}//${host}`,
