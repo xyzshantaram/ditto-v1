@@ -151,7 +151,7 @@ import dittoNamesRoute from '@/routes/dittoNamesRoute.ts';
 import pleromaAdminPermissionGroupsRoute from '@/routes/pleromaAdminPermissionGroupsRoute.ts';
 import pleromaStatusesRoute from '@/routes/pleromaStatusesRoute.ts';
 import { DittoRelayStore } from '@/storages/DittoRelayStore.ts';
-import { adminCurrentPolicyController, adminListPoliciesController } from '@/controllers/api/policies.ts';
+import { adminCurrentPolicyController, adminListPoliciesController, adminUpdatePolicyController } from '@/controllers/api/policies.ts';
 import { createPolicyEvent, DEFAULT_POLICY_SPEC } from '@/utils/policies.ts';
 
 export interface AppEnv extends DittoEnv {
@@ -505,6 +505,7 @@ app.patch('/api/v1/pleroma/admin/users/unsuggest', userMiddleware({ role: 'admin
 
 app.get('/api/v1/admin/policies', userMiddleware({ role: 'admin' }), adminListPoliciesController);
 app.get('/api/v1/admin/policies/current', userMiddleware({ role: 'admin' }), adminCurrentPolicyController);
+app.put('/api/v1/admin/policies/current', userMiddleware({ role: 'admin' }), adminUpdatePolicyController);
 
 app.route('/api/v1/custom_emojis', customEmojisRoute);
 
