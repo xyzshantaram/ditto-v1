@@ -368,9 +368,8 @@ export class DittoConf {
     return this.env.get('DITTO_POLICY') || path.join(this.dataDir, 'policy.ts');
   }
 
-  get policyMode(): string {
-    if (Deno.env.get("DITTO_CUSTOM_POLICY") === "1") return "script";
-    return "event";
+  get policyMode(): "script" | "event" {
+    return this.env.get("DITTO_CUSTOM_POLICY") ? "script" : "event";
   }
 
   /** Absolute path to the data directory used by Ditto. */
