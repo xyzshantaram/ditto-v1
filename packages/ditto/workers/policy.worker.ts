@@ -8,6 +8,7 @@ import * as Comlink from 'comlink';
 import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
 import { DittoPgStore } from '@/storages/DittoPgStore.ts';
 import { DEFAULT_POLICY_SPEC, PolicySpec } from '@/utils/policies.ts';
+import { logi } from '@soapbox/logi';
 
 // @ts-ignore Don't try to access the env from this worker.
 Deno.env = new Map<string, string>();
@@ -75,7 +76,16 @@ export class CustomPolicy implements NPolicy {
       for (const item of spec.policies) {
         const policy = registry.available[item.name];
         if (!policy) continue;
-        policies.push(policy.instantiate(item.params || {}));
+        try {
+          policies.push(policy.instantiate(item.params || {}));
+        }
+        catch (e) {
+          logi({
+            level: 'error',
+            ns: 'ditto.system.policy.worker',
+            msg: `Error instantiating policy ${item.name} with params \`${JSON.stringify(item.params)}\`: ${e}`
+          })
+        }
       }
 
       this.policy = new PipePolicy(policies);
