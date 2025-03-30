@@ -25,7 +25,6 @@ const cache = (f: () => (number | undefined) | Promise<number | undefined>, inte
       lastCheck = now;
       value = await f();
     }
-    console.log('error', value);
     return Number(value || 0);
   };
 };
