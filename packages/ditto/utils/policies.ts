@@ -25,8 +25,6 @@ export interface PolicySpec {
 export const DEFAULT_POLICY_SPEC: PolicySpec = {
   policies: [
     { 'name': 'AntiDuplicationPolicy' },
-    { 'name': 'AuthorPolicy' },
-    { 'name': 'DomainPolicy' },
     { 'name': 'HellthreadPolicy' },
     { 'name': 'ReplyBotPolicy' },
     { 'name': 'SizePolicy' },
