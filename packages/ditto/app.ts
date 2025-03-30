@@ -151,7 +151,11 @@ import dittoNamesRoute from '@/routes/dittoNamesRoute.ts';
 import pleromaAdminPermissionGroupsRoute from '@/routes/pleromaAdminPermissionGroupsRoute.ts';
 import pleromaStatusesRoute from '@/routes/pleromaStatusesRoute.ts';
 import { DittoRelayStore } from '@/storages/DittoRelayStore.ts';
-import { adminCurrentPolicyController, adminListPoliciesController, adminUpdatePolicyController } from '@/controllers/api/policies.ts';
+import {
+  adminCurrentPolicyController,
+  adminListPoliciesController,
+  adminUpdatePolicyController,
+} from '@/controllers/api/policies.ts';
 import { createPolicyEvent, DEFAULT_POLICY_SPEC } from '@/utils/policies.ts';
 
 export interface AppEnv extends DittoEnv {

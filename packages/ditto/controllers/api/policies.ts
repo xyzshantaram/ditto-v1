@@ -32,21 +32,22 @@ export const adminCurrentPolicyController: AppController = async (c) => {
 const PolicySpecSchema = z.object({
   policies: z.array(z.object({
     name: z.string(),
-    params: z.record(z.any())
-  }))
-})
+    params: z.record(z.any()),
+  })),
+});
 
 export const adminUpdatePolicyController: AppController = async (c) => {
   const { relay, conf } = c.var;
   if (conf.policyMode === 'script') {
     return c.json({
-      error: "The Ditto policy mode is set to 'script'. You will not be able to use the Policy UI until you change it to 'event'."
-    })
+      error:
+        "The Ditto policy mode is set to 'script'. You will not be able to use the Policy UI until you change it to 'event'.",
+    });
   }
   const req = await c.req.json();
   const parsed = PolicySpecSchema.parse(req);
   await relay.event(await createPolicyEvent(conf, parsed));
   return c.json({
-    message: "Settings saved successfully."
-  })
-}
+    message: 'Settings saved successfully.',
+  });
+};

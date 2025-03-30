@@ -78,13 +78,12 @@ export class CustomPolicy implements NPolicy {
         if (!policy) continue;
         try {
           policies.push(policy.instantiate(item.params || {}));
-        }
-        catch (e) {
+        } catch (e) {
           logi({
             level: 'error',
             ns: 'ditto.system.policy.worker',
-            msg: `Error instantiating policy ${item.name} with params \`${JSON.stringify(item.params)}\`: ${e}`
-          })
+            msg: `Error instantiating policy ${item.name} with params \`${JSON.stringify(item.params)}\`: ${e}`,
+          });
         }
       }
 
