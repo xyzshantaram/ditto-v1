@@ -53,9 +53,9 @@ export class PolicyWorker implements NPolicy {
         path: conf.policy,
         databaseUrl: conf.databaseUrl,
         pubkey: await conf.signer.getPublicKey(),
-        mode: conf.policyMode
+        mode: conf.policyMode,
       });
-      if (conf.policyMode === "script") {
+      if (conf.policyMode === 'script') {
         logi({
           level: 'info',
           ns: 'ditto.system.policy',

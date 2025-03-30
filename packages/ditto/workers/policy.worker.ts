@@ -2,7 +2,7 @@ import { DittoConf } from '@ditto/conf';
 import { DittoPolyPg } from '@ditto/db';
 import '@soapbox/safe-fetch/load';
 import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/nostrify';
-import { ReadOnlyPolicy, PolicyRegistry, PipePolicy } from '@nostrify/policies';
+import { PipePolicy, PolicyRegistry, ReadOnlyPolicy } from '@nostrify/policies';
 import * as Comlink from 'comlink';
 
 import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
@@ -17,17 +17,17 @@ interface PolicyInitCommon {
   databaseUrl: string;
   /** Admin pubkey to use for DittoPgStore checks. */
   pubkey: string;
-  mode: "script" | "event";
+  mode: 'script' | 'event';
 }
 
 interface ScriptPolicyInit {
   /** Path to the policy module (https, jsr, file, etc) */
   path: string;
-  mode: "script";
+  mode: 'script';
 }
 
 interface EventPolicyInit {
-  mode: "event";
+  mode: 'event';
 }
 
 type PolicyInit = PolicyInitCommon & (ScriptPolicyInit | EventPolicyInit);
@@ -60,16 +60,15 @@ export class CustomPolicy implements NPolicy {
       timeout: 5_000,
     });
 
-    if (opts.mode === "script") {
+    if (opts.mode === 'script') {
       const Policy = (await import(opts.path)).default;
       this.policy = new Policy({ db, store, pubkey });
-    }
-    else {
+    } else {
       const registry = new PolicyRegistry({ store, antiDuplicationPolicyStore: await Deno.openKv() });
       const policies: NPolicy[] = [];
       const event = await store
         .query([{ kinds: [11984], authors: [await conf.signer.getPublicKey()] }])
-        .then(results => results[0]);
+        .then((results) => results[0]);
 
       const spec: PolicySpec = event ? JSON.parse(event.content) : DEFAULT_POLICY_SPEC;
 

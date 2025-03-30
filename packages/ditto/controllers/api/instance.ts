@@ -27,8 +27,8 @@ const cache = (f: () => (number | undefined) | Promise<number | undefined>, inte
     }
     console.log('error', value);
     return Number(value || 0);
-  }
-}
+  };
+};
 
 const instanceV1Controller: AppController = async (c) => {
   const { conf, db } = c.var;
@@ -44,14 +44,14 @@ const instanceV1Controller: AppController = async (c) => {
       .selectFrom('author_stats')
       .where('nip05_domain', '=', host)
       .select(({ fn }) => fn.count<number>('pubkey').distinct().as('users'))
-      .executeTakeFirst().then(obj => obj?.users || 0);
+      .executeTakeFirst().then((obj) => obj?.users || 0);
   }, MINS_10);
 
   const domainCount = cache(async () => {
     return await db.kysely
       .selectFrom('author_stats')
       .select(({ fn }) => fn.count<number>('nip05_domain').distinct().as('domains'))
-      .executeTakeFirst().then(obj => obj?.domains || 0);
+      .executeTakeFirst().then((obj) => obj?.domains || 0);
   }, MINS_10);
 
   const statusCount = cache(async () => {
@@ -59,7 +59,7 @@ const instanceV1Controller: AppController = async (c) => {
       .selectFrom('nostr_events')
       .where('kind', '=', 1)
       .select(({ fn }) => fn.countAll<number>().as('events'))
-      .executeTakeFirst().then(obj => obj?.events || 0);
+      .executeTakeFirst().then((obj) => obj?.events || 0);
   }, MINS_10);
 
   return c.json({
