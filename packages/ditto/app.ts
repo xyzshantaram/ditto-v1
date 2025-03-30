@@ -151,7 +151,6 @@ import dittoNamesRoute from '@/routes/dittoNamesRoute.ts';
 import pleromaAdminPermissionGroupsRoute from '@/routes/pleromaAdminPermissionGroupsRoute.ts';
 import pleromaStatusesRoute from '@/routes/pleromaStatusesRoute.ts';
 import { DittoRelayStore } from '@/storages/DittoRelayStore.ts';
-import { PolicyRegistry } from '@nostrify/policies';
 import { adminListPoliciesController, adminCurrentPolicyController } from '@/controllers/api/policies.ts';
 import { createPolicyEvent, DEFAULT_POLICIES } from '@/utils/policies.ts';
 
@@ -200,11 +199,10 @@ const pgstore = new DittoPgStore({
 
 const pool = new DittoPool({ conf, relay: pgstore });
 const relay = new DittoRelayStore({ db, conf, pool, relay: pgstore });
-const policyRegistry = new PolicyRegistry({ antiDuplicationPolicyStore: await Deno.openKv(), store: relay });
 const havePolicy = await relay.count([{ kinds: [11984], authors: [await conf.signer.getPublicKey()] }]);
 
 if (!havePolicy) {
-  relay.event(await createPolicyEvent(conf, DEFAULT_POLICIES));
+  relay.event(await createPolicyEvent(conf, { policies: DEFAULT_POLICIES }));
 }
 
 await seedZapSplits({ conf, relay });
@@ -570,5 +568,4 @@ app.get('*', publicFiles, staticFiles, ratelimit, frontendController);
 app.onError(errorHandler);
 
 export default app;
-export { policyRegistry };
 export type { AppContext, AppController, AppMiddleware };

@@ -1,8 +1,8 @@
-import { policyRegistry, type AppController } from '@/app.ts';
-import { DEFAULT_POLICIES } from "@/utils/policies.ts";
+import { type AppController } from '@/app.ts';
+import { DEFAULT_POLICIES, policyRegistry } from "@/utils/policies.ts";
 
 export const adminListPoliciesController: AppController = (c) => {
-    return c.json(Object.entries(policyRegistry.policies)
+    return c.json(Object.entries(policyRegistry.available)
         .map(([internalName, item]) => {
             return {
                 internalName,
