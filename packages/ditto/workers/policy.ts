@@ -53,15 +53,17 @@ export class PolicyWorker implements NPolicy {
         path: conf.policy,
         databaseUrl: conf.databaseUrl,
         pubkey: await conf.signer.getPublicKey(),
+        mode: conf.policyMode
       });
-
-      logi({
-        level: 'info',
-        ns: 'ditto.system.policy',
-        msg: 'Using custom policy',
-        path: conf.policy,
-        enabled: true,
-      });
+      if (conf.policyMode === "script") {
+        logi({
+          level: 'info',
+          ns: 'ditto.system.policy',
+          msg: 'Using custom policy',
+          path: conf.policy,
+          enabled: true,
+        });
+      }
     } catch (e) {
       if (e instanceof Error && e.message.includes('Module not found')) {
         logi({
