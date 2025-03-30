@@ -507,9 +507,9 @@ app.delete('/api/v1/pleroma/admin/users/tag', userMiddleware({ role: 'admin' }),
 app.patch('/api/v1/pleroma/admin/users/suggest', userMiddleware({ role: 'admin' }), pleromaAdminSuggestController);
 app.patch('/api/v1/pleroma/admin/users/unsuggest', userMiddleware({ role: 'admin' }), pleromaAdminUnsuggestController);
 
-app.get('/api/v1/admin/policies', userMiddleware({ role: 'admin' }), adminListPoliciesController);
-app.get('/api/v1/admin/policies/current', userMiddleware({ role: 'admin' }), adminCurrentPolicyController);
-app.put('/api/v1/admin/policies/current', userMiddleware({ role: 'admin' }), adminUpdatePolicyController);
+app.get('/api/v1/admin/ditto/policies', userMiddleware({ role: 'admin' }), adminListPoliciesController);
+app.get('/api/v1/admin/ditto/policies/current', userMiddleware({ role: 'admin' }), adminCurrentPolicyController);
+app.put('/api/v1/admin/ditto/policies/current', userMiddleware({ role: 'admin' }), adminUpdatePolicyController);
 
 app.route('/api/v1/custom_emojis', customEmojisRoute);
 
