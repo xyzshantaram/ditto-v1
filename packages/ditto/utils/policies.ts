@@ -23,20 +23,22 @@ export interface PolicySpec {
     policies: PolicySpecItem[]
 }
 
-export const DEFAULT_POLICIES: PolicySpecItem[] = [
-    { "name": "AntiDuplicationPolicy" },
-    { "name": "AuthorPolicy" },
-    { "name": "DomainPolicy" },
-    { "name": "HellthreadPolicy" },
-    { "name": "ReplyBotPolicy" },
-    { "name": "SizePolicy" },
-    { "name": "HashtagPolicy", "params": { "hashtags": ["NSFW", "explicit", "violence", "cp", "porn"] } },
-];
+export const DEFAULT_POLICY_SPEC: PolicySpec = {
+    policies: [
+        { "name": "AntiDuplicationPolicy" },
+        { "name": "AuthorPolicy" },
+        { "name": "DomainPolicy" },
+        { "name": "HellthreadPolicy" },
+        { "name": "ReplyBotPolicy" },
+        { "name": "SizePolicy" },
+        { "name": "HashtagPolicy", "params": { "hashtags": ["NSFW", "explicit", "violence", "cp", "porn"] } },
+    ]
+};
 
 export const createPolicyEvent = async (conf: DittoConf, policies: PolicySpec) => {
     return await conf.signer.signEvent({
         kind: 11984,
-        content: JSON.stringify({ policies }),
+        content: JSON.stringify(policies),
         created_at: nostrNow(),
         tags: []
     })

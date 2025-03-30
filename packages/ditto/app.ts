@@ -152,7 +152,7 @@ import pleromaAdminPermissionGroupsRoute from '@/routes/pleromaAdminPermissionGr
 import pleromaStatusesRoute from '@/routes/pleromaStatusesRoute.ts';
 import { DittoRelayStore } from '@/storages/DittoRelayStore.ts';
 import { adminListPoliciesController, adminCurrentPolicyController } from '@/controllers/api/policies.ts';
-import { createPolicyEvent, DEFAULT_POLICIES } from '@/utils/policies.ts';
+import { createPolicyEvent, DEFAULT_POLICY_SPEC } from '@/utils/policies.ts';
 
 export interface AppEnv extends DittoEnv {
   Variables: DittoEnv['Variables'] & {
@@ -201,8 +201,8 @@ const pool = new DittoPool({ conf, relay: pgstore });
 const relay = new DittoRelayStore({ db, conf, pool, relay: pgstore });
 const havePolicy = await relay.count([{ kinds: [11984], authors: [await conf.signer.getPublicKey()] }]);
 
-if (!havePolicy) {
-  relay.event(await createPolicyEvent(conf, { policies: DEFAULT_POLICIES }));
+if (!havePolicy.count) {
+  await relay.event(await createPolicyEvent(conf, DEFAULT_POLICY_SPEC));
 }
 
 await seedZapSplits({ conf, relay });
