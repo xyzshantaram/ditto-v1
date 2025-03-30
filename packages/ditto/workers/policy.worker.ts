@@ -2,24 +2,35 @@ import { DittoConf } from '@ditto/conf';
 import { DittoPolyPg } from '@ditto/db';
 import '@soapbox/safe-fetch/load';
 import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/nostrify';
-import { ReadOnlyPolicy } from '@nostrify/policies';
+import { ReadOnlyPolicy, PolicyRegistry, PipePolicy } from '@nostrify/policies';
 import * as Comlink from 'comlink';
 
 import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
 import { DittoPgStore } from '@/storages/DittoPgStore.ts';
+import { DEFAULT_POLICY_SPEC, PolicySpec } from '@/utils/policies.ts';
 
 // @ts-ignore Don't try to access the env from this worker.
 Deno.env = new Map<string, string>();
 
-/** Serializable object the worker can use to set up the state. */
-interface PolicyInit {
-  /** Path to the policy module (https, jsr, file, etc) */
-  path: string;
+interface PolicyInitCommon {
   /** Database URL to connect to. */
   databaseUrl: string;
   /** Admin pubkey to use for DittoPgStore checks. */
   pubkey: string;
+  mode: "script" | "event";
 }
+
+interface ScriptPolicyInit {
+  /** Path to the policy module (https, jsr, file, etc) */
+  path: string;
+  mode: "script";
+}
+
+interface EventPolicyInit {
+  mode: "event";
+}
+
+type PolicyInit = PolicyInitCommon & (ScriptPolicyInit | EventPolicyInit);
 
 export class CustomPolicy implements NPolicy {
   private policy: NPolicy = new ReadOnlyPolicy();
@@ -29,8 +40,8 @@ export class CustomPolicy implements NPolicy {
     return this.policy.call(event, signal);
   }
 
-  async init({ path, databaseUrl, pubkey }: PolicyInit): Promise<void> {
-    const Policy = (await import(path)).default;
+  async init(opts: PolicyInit): Promise<void> {
+    const { databaseUrl, pubkey } = opts;
 
     const db = new DittoPolyPg(databaseUrl, { poolSize: 1 });
 
@@ -49,7 +60,27 @@ export class CustomPolicy implements NPolicy {
       timeout: 5_000,
     });
 
-    this.policy = new Policy({ db, store, pubkey });
+    if (opts.mode === "script") {
+      const Policy = (await import(opts.path)).default;
+      this.policy = new Policy({ db, store, pubkey });
+    }
+    else {
+      const registry = new PolicyRegistry({ store, antiDuplicationPolicyStore: await Deno.openKv() });
+      const policies: NPolicy[] = [];
+      const event = await store
+        .query([{ kinds: [11984], authors: [await conf.signer.getPublicKey()] }])
+        .then(results => results[0]);
+
+      const spec: PolicySpec = event ? JSON.parse(event.content) : DEFAULT_POLICY_SPEC;
+
+      for (const item of spec.policies) {
+        const policy = registry.available[item.name];
+        if (!policy) continue;
+        policies.push(policy.instantiate(item.params || {}));
+      }
+
+      this.policy = new PipePolicy(policies);
+    }
   }
 }
 
