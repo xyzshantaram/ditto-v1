@@ -26,6 +26,8 @@ export const adminCurrentPolicyController: AppController = async (c) => {
   }]).then((events) => events[0]);
 
   if (current) return c.json({ mode: conf.policyMode, spec: current });
+
+  await relay.event(await createPolicyEvent(conf, DEFAULT_POLICY_SPEC));
   return c.json({ mode: conf.policyMode, spec: DEFAULT_POLICY_SPEC });
 };
 
@@ -44,10 +46,21 @@ export const adminUpdatePolicyController: AppController = async (c) => {
         "The Ditto policy mode is set to 'script'. You will not be able to use the Policy UI until you change it to 'event'.",
     });
   }
-  const req = await c.req.json();
-  const parsed = PolicySpecSchema.parse(req);
-  await relay.event(await createPolicyEvent(conf, parsed));
-  return c.json({
-    message: 'Settings saved successfully.',
-  });
+
+  try {
+    const req = await c.req.json();
+    const parsed = PolicySpecSchema.parse(req);
+    await relay.event(await createPolicyEvent(conf, parsed));
+    return c.json({
+      message: 'Settings saved successfully.',
+    });
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return c.json({ error: 'Invalid JSON in request body' }, 400);
+    }
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Invalid policy specification', details: error.errors }, 400);
+    }
+    return c.json({ error: 'Failed to update policy' }, 500);
+  }
 };
