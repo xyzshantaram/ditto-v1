@@ -25,7 +25,7 @@ export const adminCurrentPolicyController: AppController = async (c) => {
     kinds: [11984],
   }]).then((events) => events[0]);
 
-  if (current) return c.json({ mode: conf.policyMode, spec: current });
+  if (current) return c.json({ mode: conf.policyMode, spec: JSON.parse(current.content) });
 
   await relay.event(await createPolicyEvent(conf, DEFAULT_POLICY_SPEC));
   return c.json({ mode: conf.policyMode, spec: DEFAULT_POLICY_SPEC });
