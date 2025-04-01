@@ -11,6 +11,5 @@ deno-test.xml
 /data
 Dockerfile
 Dockerfile.*
-docker-compose.*
 .dockerignore
 .gitlab-ci.yml
