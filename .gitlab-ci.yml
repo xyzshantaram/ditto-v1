@@ -12,13 +12,6 @@ stages:
 test:
   stage: test
   timeout: 2 minutes
-  before_script:
-    # Install nak for test environment
-    - apt-get update && apt-get install -y curl build-essential
-    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    - . "$HOME/.cargo/env" && cargo install nak
-    # Generate NSEC
-    - export DITTO_NSEC=$(nak key generate | nak encode nsec)
   script:
     - deno fmt --check
     - deno task lint
@@ -29,6 +22,7 @@ test:
   services:
     - postgres:16
   variables:
+    DITTO_NSEC: nsec1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs4rm7hz
     DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
     POSTGRES_HOST_AUTH_METHOD: trust
     RUST_BACKTRACE: 1
@@ -50,19 +44,15 @@ e2e-environment:
     DOCKER_TLS_CERTDIR: ""
     DOCKER_DRIVER: overlay2
   script:
-    - docker compose -f docker-compose.test.yml up -d
-    # Wait for Ditto to be healthy
-    - |
-      until docker compose -f docker-compose.test.yml ps ditto | grep -q "healthy"; do
-        echo "Waiting for Ditto to be ready..."
-        sleep 2
-      done
+    - docker compose -f docker-compose.test.yml up -d --build
+    # Wait for ditto instance to become active
+    - end=$((SECONDS + 30)); while [[ $SECONDS -lt $end ]] && ! curl http://localhost:4036; do echo "Waiting for localhost:4036..."; sleep 1; echo $SECONDS ; done
     # Generate dynamic child pipeline configuration
     - |
       cat > child-pipeline.yml << EOF
       playwright-tests:
         trigger:
-          project: your-group/ditto-playwright
+          project: soapbox-pub/ditto-playwright
           strategy: depend
           variables:
             BASE_URL: http://localhost:4036
@@ -90,7 +80,7 @@ e2e-test:
     - e2e-environment
   variables:
     BASE_URL: http://localhost:4036
-  after_script:
-    - docker compose -f docker-compose.test.yml down -v
+  # after_script:
+  #   - docker compose -f docker-compose.test.yml down -v
   only:
     - merge_requests
