@@ -1,0 +1,27 @@
+FROM denoland/deno:2.2.2
+
+WORKDIR /app
+
+# Install curl and Rust for nak installation
+RUN apt-get update && apt-get install -y \
+    curl \
+    jq \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the application files
+COPY . .
+
+# Install soapbox
+RUN deno task soapbox
+
+# Generate NSEC at build time
+RUN export DITTO_NSEC=$(deno task nsec) && \
+    echo "export DITTO_NSEC=$DITTO_NSEC" > /app/nsec.env
+
+ENV DATABASE_URL=""
+
+EXPOSE 4036
+
+# Use array form with shell -c to properly handle the command
+CMD ["/bin/sh", "-c", ". /app/nsec.env && deno run -A /app/packages/ditto/server.ts"]

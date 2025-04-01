@@ -5,7 +5,10 @@ default:
 
 stages:
   - test
+  - e2e-setup
+  - e2e-test
 
+# Original test stage
 test:
   stage: test
   timeout: 2 minutes
@@ -29,3 +32,55 @@ test:
       - deno-test.xml
     reports:
       junit: deno-test.xml
+
+# Start E2E environment
+e2e-environment:
+  stage: e2e-setup
+  image: docker/compose:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+  script:
+    - docker compose -f docker-compose.test.yml up -d --build
+    # Wait for ditto instance to become active
+    - end=$((SECONDS + 30)); while [[ $SECONDS -lt $end ]] && ! curl http://localhost:4036; do echo "Waiting for localhost:4036..."; sleep 1; echo $SECONDS ; done
+    # Generate dynamic child pipeline configuration
+    - |
+      cat > child-pipeline.yml << EOF
+      playwright-tests:
+        trigger:
+          project: soapbox-pub/ditto-playwright
+          strategy: depend
+          variables:
+            BASE_URL: http://localhost:4036
+            CI_PROJECT_ID: ${CI_PROJECT_ID}
+            CI_MERGE_REQUEST_IID: ${CI_MERGE_REQUEST_IID}
+            CI_COMMIT_SHA: ${CI_COMMIT_SHA}
+            CI_COMMIT_SHORT_SHA: ${CI_COMMIT_SHORT_SHA}
+            CI_COMMIT_REF_NAME: ${CI_COMMIT_REF_NAME}
+      EOF
+  artifacts:
+    paths:
+      - child-pipeline.yml
+  only:
+    - merge_requests
+
+# Trigger child pipeline
+e2e-test:
+  stage: e2e-test
+  trigger:
+    include:
+      - artifact: child-pipeline.yml
+        job: e2e-environment
+    strategy: depend
+  needs:
+    - e2e-environment
+  variables:
+    BASE_URL: http://localhost:4036
+  # after_script:
+  #   - docker compose -f docker-compose.test.yml down -v
+  only:
+    - merge_requests

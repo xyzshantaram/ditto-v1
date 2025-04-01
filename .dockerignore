@@ -1,6 +1,15 @@
+.git
 .env
+.env.*
 *.cpuprofile
 *.swp
+*.log
+node_modules
+cov_profile
 deno-test.xml
 
 /data
+Dockerfile
+Dockerfile.*
+.dockerignore
+.gitlab-ci.yml
