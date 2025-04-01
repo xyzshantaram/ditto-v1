@@ -5,11 +5,20 @@ default:
 
 stages:
   - test
-  - trigger-playwright-tests
+  - e2e-setup
+  - e2e-test
 
+# Original test stage
 test:
   stage: test
   timeout: 2 minutes
+  before_script:
+    # Install nak for test environment
+    - apt-get update && apt-get install -y curl build-essential
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    - . "$HOME/.cargo/env" && cargo install nak
+    # Generate NSEC
+    - export DITTO_NSEC=$(nak key generate | nak encode nsec)
   script:
     - deno fmt --check
     - deno task lint
@@ -20,7 +29,6 @@ test:
   services:
     - postgres:16
   variables:
-    DITTO_NSEC: nsec1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs4rm7hz
     DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
     POSTGRES_HOST_AUTH_METHOD: trust
     RUST_BACKTRACE: 1
@@ -31,22 +39,58 @@ test:
     reports:
       junit: deno-test.xml
 
-trigger-playwright-tests:
-  stage: trigger-playwright-tests
-  image: ubuntu:latest
-  before_script:
-    - apt update && apt install -y curl
+# Start E2E environment
+e2e-environment:
+  stage: e2e-setup
+  image: docker/compose:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
   script:
+    - docker compose -f docker-compose.test.yml up -d
+    # Wait for Ditto to be healthy
     - |
-      curl --request POST \
-        --form "token=${PLAYWRIGHT_TRIGGER_TOKEN}" \
-        --form "ref=main" \
-        --form "merge_requests_events=true" \
-        --form "variables[CI_PROJECT_ID]=${CI_PROJECT_ID}" \
-        --form "variables[CI_MERGE_REQUEST_IID]=${CI_MERGE_REQUEST_IID}" \
-        --form "variables[CI_COMMIT_SHA]=${CI_COMMIT_SHA}" \
-        --form "variables[CI_COMMIT_SHORT_SHA]=${CI_COMMIT_SHORT_SHA}" \
-        --form "variables[CI_COMMIT_REF_NAME]=${CI_COMMIT_REF_NAME}" \
-        "https://gitlab.com/api/v4/projects/67335996/trigger/pipeline"
+      until docker compose -f docker-compose.test.yml ps ditto | grep -q "healthy"; do
+        echo "Waiting for Ditto to be ready..."
+        sleep 2
+      done
+    # Generate dynamic child pipeline configuration
+    - |
+      cat > child-pipeline.yml << EOF
+      playwright-tests:
+        trigger:
+          project: your-group/ditto-playwright
+          strategy: depend
+          variables:
+            BASE_URL: http://localhost:4036
+            CI_PROJECT_ID: ${CI_PROJECT_ID}
+            CI_MERGE_REQUEST_IID: ${CI_MERGE_REQUEST_IID}
+            CI_COMMIT_SHA: ${CI_COMMIT_SHA}
+            CI_COMMIT_SHORT_SHA: ${CI_COMMIT_SHORT_SHA}
+            CI_COMMIT_REF_NAME: ${CI_COMMIT_REF_NAME}
+      EOF
+  artifacts:
+    paths:
+      - child-pipeline.yml
+  only:
+    - merge_requests
+
+# Trigger child pipeline
+e2e-test:
+  stage: e2e-test
+  trigger:
+    include:
+      - artifact: child-pipeline.yml
+        job: e2e-environment
+    strategy: depend
+  needs:
+    - e2e-environment
+  variables:
+    BASE_URL: http://localhost:4036
+  after_script:
+    - docker compose -f docker-compose.test.yml down -v
   only:
     - merge_requests
