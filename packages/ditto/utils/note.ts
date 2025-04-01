@@ -23,7 +23,7 @@ interface ParseNoteContentOpts {
 export function contentToHtml(content: string, mentions: MastodonMention[], opts: ParseNoteContentOpts): string {
   const { conf } = opts;
 
-  return linkifyStr(content, {
+  const htmlString = linkifyStr(content, {
     render: {
       hashtag: ({ content }) => {
         const tag = content.replace(/^#/, '');
@@ -67,6 +67,9 @@ export function contentToHtml(content: string, mentions: MastodonMention[], opts
       },
     },
   }).replace(/\n+$/, '');
+
+  // Replace apostrophes with &apos;
+  return htmlString.replace(/'/g, '&apos;');
 }
 
 /** Remove the tokens from the _end_ of the content. */
