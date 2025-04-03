@@ -49,7 +49,7 @@ export interface PolicyRegistryOpts {
 }
 
 export class PolicyRegistry {
-  constructor(private opts: PolicyRegistryOpts) { }
+  constructor(private opts: PolicyRegistryOpts) {}
 
   available: Record<string, PolicyItem> = {
     'AntiDuplicationPolicy': {
