@@ -2,6 +2,7 @@ import denoJson from 'deno.json' with { type: 'json' };
 
 import { AppController } from '@/app.ts';
 import { getInstanceMetadata } from '@/utils/instance.ts';
+import { logi } from '@soapbox/logi';
 
 const version = `3.0.0 (compatible; Ditto ${denoJson.version})`;
 
@@ -15,17 +16,26 @@ const features = [
   'v2_suggestions',
 ];
 
-const cache = (f: () => (number | undefined) | Promise<number | undefined>, interval: number) => {
-  let lastCheck = Date.now();
-  let value: number | undefined = undefined;
+const cache = (f: () => Promise<number | undefined>, interval: number) => {
+  let lastCheck = 0;
+  let value: number | undefined;
 
   return async () => {
     const now = Date.now();
-    if (value === null || now - lastCheck > interval) {
+    if (value === undefined || now - lastCheck > interval) {
       lastCheck = now;
-      value = await f();
+      try {
+        value = await f();
+      } catch (error) {
+        logi({
+          level: 'error',
+          ns: 'ditto.routes.instanceV1',
+          message: `Error fetching cached value: ${error}`
+        });
+        value = undefined; // Ensure we retry next time
+      }
     }
-    return Number(value || 0);
+    return value ?? 0; // Prevent returning undefined
   };
 };
 
@@ -96,9 +106,9 @@ const instanceV1Controller: AppController = async (c) => {
     },
     languages: ['en'],
     stats: {
-      domain_count: await domainCount(),
-      status_count: await statusCount(),
-      user_count: await userCount(),
+      domain_count: Number(await domainCount()),
+      status_count: Number(await statusCount()),
+      user_count: Number(await userCount()),
     },
     urls: {
       streaming_api: `${wsProtocol}//${host}`,
