@@ -16,9 +16,12 @@ export const policyRegistry = new PolicyRegistry({
   store: new MockRelay(),
 });
 
+export type PolicyParam = ParamValue | (string | number)[];
+export type PolicyParams = Record<string, PolicyParam>;
+
 interface PolicySpecItem {
   name: keyof typeof policyRegistry.available;
-  params?: Record<string, ParamValue | (number | string)[]>;
+  params?: PolicyParams;
 }
 
 export interface PolicySpec {

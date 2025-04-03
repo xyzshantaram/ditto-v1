@@ -34,10 +34,10 @@ import {
   WhitelistPolicyOptsSchema,
   WoTPolicyOptsSchema,
 } from '@/utils/policies/schemas.ts';
-import { normalizeNpub } from '@/utils/policies/mod.ts';
+import { normalizeNpub, PolicyParams } from '@/utils/policies/mod.ts';
 
 export interface PolicyItem {
-  instantiate: (params: Record<string, any>) => NPolicy;
+  instantiate: (params: PolicyParams) => NPolicy;
   name: string;
   parameters: Record<string, FieldItem>;
   description: string;
@@ -49,7 +49,7 @@ export interface PolicyRegistryOpts {
 }
 
 export class PolicyRegistry {
-  constructor(private opts: PolicyRegistryOpts) {}
+  constructor(private opts: PolicyRegistryOpts) { }
 
   available: Record<string, PolicyItem> = {
     'AntiDuplicationPolicy': {
@@ -88,10 +88,11 @@ export class PolicyRegistry {
       instantiate: (params) => {
         if (!params.filters || !Array.isArray(params.filters)) throw new Error('Invalid params to FiltersPolicy');
         const filters = params.filters.map((item) => {
+          if (typeof item === 'number') return;
           try {
             return JSON.parse(item);
           } catch {
-            return undefined;
+            return;
           }
         }).filter(Boolean);
         const parsed = FiltersPolicyOptsSchema.parse({ filters });
