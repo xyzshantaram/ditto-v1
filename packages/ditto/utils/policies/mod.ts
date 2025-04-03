@@ -35,11 +35,11 @@ export const normalizeNpub = (itm: string) => {
 
 export const DEFAULT_POLICY_SPEC: PolicySpec = {
   policies: [
-    { 'name': 'AntiDuplicationPolicy' },
-    { 'name': 'HellthreadPolicy' },
-    { 'name': 'ReplyBotPolicy' },
     { 'name': 'SizePolicy' },
+    { 'name': 'HellthreadPolicy' },
     { 'name': 'HashtagPolicy', 'params': { 'hashtags': ['NSFW', 'explicit', 'violence', 'cp', 'porn'] } },
+    { 'name': 'ReplyBotPolicy' },
+    { 'name': 'AntiDuplicationPolicy' },
   ],
 };
 
