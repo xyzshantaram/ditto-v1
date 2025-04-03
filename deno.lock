@@ -1573,6 +1573,7 @@
       "jsr:@std/fs@~0.229.3",
       "jsr:@std/json@0.223",
       "jsr:@std/media-types@~0.224.1",
+      "jsr:@std/path@^1.0.8",
       "jsr:@std/streams@0.223",
       "jsr:@std/testing@^1.0.9",
       "npm:@cashu/cashu-ts@^2.2.0",
