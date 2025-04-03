@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PolicyParam } from '@/utils/policies/mod.ts';
 
 type FieldType = 'string' | 'multi_string' | 'number' | 'multi_number' | 'boolean' | 'unknown';
 
@@ -6,13 +7,13 @@ export interface FieldItem {
   type: FieldType;
   description?: string;
   optional?: boolean;
-  default?: any;
+  default?: PolicyParam;
 }
 
 interface UnwrappedZodType {
   baseType: z.ZodTypeAny;
   optional?: boolean;
-  defaultValue?: any;
+  defaultValue?: PolicyParam;
   description?: string;
 }
 
@@ -21,7 +22,7 @@ interface UnwrappedZodType {
  */
 function unwrapZodType(field: z.ZodTypeAny): UnwrappedZodType {
   let optional = false;
-  let defaultValue: any = undefined;
+  let defaultValue: PolicyParam | undefined = undefined;
   let description: string | undefined = undefined;
 
   description = field.description;
@@ -63,6 +64,8 @@ function unwrapZodType(field: z.ZodTypeAny): UnwrappedZodType {
  *
  * Special-cases NIP-01 filters as `multi_string`.
  */
+
+// deno-lint-ignore no-explicit-any
 export function zodSchemaToFields(schema: z.ZodObject<any>): Record<string, FieldItem> {
   const result: Record<string, FieldItem> = {};
 
