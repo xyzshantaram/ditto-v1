@@ -17,21 +17,21 @@ export const FiltersPolicyOptsSchema = z.object({
   filters: z.array(n.filter()),
 });
 
-interface FiltersPolicyOpts extends z.TypeOf<typeof FiltersPolicyOptsSchema> { }
+interface FiltersPolicyOpts extends z.TypeOf<typeof FiltersPolicyOptsSchema> {}
 
 /** Options for `HashtagPolicy`. */
 export const HashtagPolicyOptsSchema = z.object({
   hashtags: z.array(z.string()).describe('Banned hashtags (case-insensitive)'),
 });
 
-export interface HashtagPolicyOpts extends z.TypeOf<typeof HashtagPolicyOptsSchema> { }
+export interface HashtagPolicyOpts extends z.TypeOf<typeof HashtagPolicyOptsSchema> {}
 
 /** Options for `WhitelistPolicy`. */
 export const WhitelistPolicyOptsSchema = z.object({
   pubkeys: z.array(z.string()).describe('Allowed pubkeys'),
 });
 
-export interface WhitelistPolicyOpts extends z.TypeOf<typeof WhitelistPolicyOptsSchema> { }
+export interface WhitelistPolicyOpts extends z.TypeOf<typeof WhitelistPolicyOptsSchema> {}
 
 /** Options for `RegexPolicy`. */
 export const RegexPolicyOptsSchema = z.object({
@@ -48,7 +48,7 @@ export const KeywordPolicyOptsSchema = z.object({
   keywords: z.array(z.string()).describe('Banned keywords (case-insensitive)'),
 });
 
-export interface KeywordPolicyOpts extends z.TypeOf<typeof KeywordPolicyOptsSchema> { }
+export interface KeywordPolicyOpts extends z.TypeOf<typeof KeywordPolicyOptsSchema> {}
 
 /** Options for `DomainPolicy`. */
 export const DomainPolicyOptsSchema = z.object({
@@ -66,7 +66,7 @@ export const PubkeyBanPolicyOptsSchema = z.object({
   pubkeys: z.array(z.string()).describe('Banned pubkeys'),
 });
 
-export interface PubkeyBanPolicyOpts extends z.TypeOf<typeof PubkeyBanPolicyOptsSchema> { }
+export interface PubkeyBanPolicyOpts extends z.TypeOf<typeof PubkeyBanPolicyOptsSchema> {}
 
 /** Options for `OpenAIPolicy`. */
 export const OpenAIPolicyOptsSchema = z.object({
@@ -122,7 +122,7 @@ export const SizePolicyOptsSchema = z.object({
   maxBytes: z.number().default(8 * 1024).describe('Max allowed message size in bytes'),
 });
 
-export interface SizePolicyOpts extends Partial<z.TypeOf<typeof SizePolicyOptsSchema>> { }
+export interface SizePolicyOpts extends Partial<z.TypeOf<typeof SizePolicyOptsSchema>> {}
 
 /** Options for `AntiDuplicationPolicy`. */
 export const AntiDuplicationPolicyOptsSchema = z.object({
@@ -140,11 +140,11 @@ export const HellthreadPolicyOptsSchema = z.object({
   limit: z.number().default(100).describe('Maximum number of mentions to allow per post'),
 });
 
-export interface HellthreadPolicyOpts extends Partial<z.TypeOf<typeof HellthreadPolicyOptsSchema>> { }
+export interface HellthreadPolicyOpts extends Partial<z.TypeOf<typeof HellthreadPolicyOptsSchema>> {}
 
 /** Options for `PowPolicy`. */
 export const PowPolicyOptsSchema = z.object({
   difficulty: z.number().default(1).describe('Number of bits of proof-of-work to require'),
 });
 
-export interface PowPolicyOpts extends Partial<z.TypeOf<typeof PowPolicyOptsSchema>> { }
+export interface PowPolicyOpts extends Partial<z.TypeOf<typeof PowPolicyOptsSchema>> {}
