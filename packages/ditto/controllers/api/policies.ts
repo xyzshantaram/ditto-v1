@@ -1,6 +1,6 @@
 import { type AppController } from '@/app.ts';
-import { createPolicyEvent } from '@/utils/policies.ts';
-import { DEFAULT_POLICY_SPEC, policyRegistry } from '@/utils/policies.ts';
+import { createPolicyEvent } from '@/utils/policies/mod.ts';
+import { DEFAULT_POLICY_SPEC, policyRegistry } from '@/utils/policies/mod.ts';
 import { z } from 'zod';
 
 export const adminListPoliciesController: AppController = (c) => {

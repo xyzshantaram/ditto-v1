@@ -30,7 +30,7 @@ const cache = (f: () => Promise<number | undefined>, interval: number) => {
         logi({
           level: 'error',
           ns: 'ditto.routes.instanceV1',
-          message: `Error fetching cached value: ${error}`
+          message: `Error fetching cached value: ${error}`,
         });
         value = undefined; // Ensure we retry next time
       }

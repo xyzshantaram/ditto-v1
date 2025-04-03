@@ -66,7 +66,7 @@
     "@noble/secp256k1": "npm:@noble/secp256k1@^2.0.0",
     "@nostrify/db": "jsr:@nostrify/db@^0.39.4",
     "@nostrify/nostrify": "jsr:@nostrify/nostrify@^0.39.1",
-    "@nostrify/policies": "https://gitlab.com/soapbox-pub/nostrify/-/raw/58c20b3ee23d8be4987d2c0055d86960e7db763d/packages/policies/mod.ts",
+    "@nostrify/policies": "jsr:@nostrify/policies@^0.36.1",
     "@nostrify/types": "jsr:@nostrify/types@^0.36.0",
     "@scure/base": "npm:@scure/base@^1.1.6",
     "@sentry/deno": "https://deno.land/x/sentry@7.112.2/index.mjs",

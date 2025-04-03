@@ -156,7 +156,7 @@ import {
   adminListPoliciesController,
   adminUpdatePolicyController,
 } from '@/controllers/api/policies.ts';
-import { createPolicyEvent, DEFAULT_POLICY_SPEC } from '@/utils/policies.ts';
+import { createPolicyEvent, DEFAULT_POLICY_SPEC } from '@/utils/policies/mod.ts';
 
 export interface AppEnv extends DittoEnv {
   Variables: DittoEnv['Variables'] & {

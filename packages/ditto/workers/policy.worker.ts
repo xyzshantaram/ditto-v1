@@ -2,12 +2,12 @@ import { DittoConf } from '@ditto/conf';
 import { DittoPolyPg } from '@ditto/db';
 import '@soapbox/safe-fetch/load';
 import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/nostrify';
-import { PipePolicy, PolicyRegistry, ReadOnlyPolicy } from '@nostrify/policies';
+import { PipePolicy, ReadOnlyPolicy } from '@nostrify/policies';
 import * as Comlink from 'comlink';
 
 import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
 import { DittoPgStore } from '@/storages/DittoPgStore.ts';
-import { DEFAULT_POLICY_SPEC, PolicySpec } from '@/utils/policies.ts';
+import { DEFAULT_POLICY_SPEC, PolicyRegistry, PolicySpec } from '@/utils/policies/mod.ts';
 import { logi } from '@soapbox/logi';
 
 // @ts-ignore Don't try to access the env from this worker.
