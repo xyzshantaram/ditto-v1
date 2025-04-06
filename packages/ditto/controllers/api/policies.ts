@@ -52,7 +52,7 @@ export const adminUpdatePolicyController: AppController = async (c) => {
     const parsed = PolicySpecSchema.parse(req);
 
     // Validate each policy against its specific schema
-    const invalidPolicies = parsed.policies.filter(policy => {
+    const invalidPolicies = parsed.policies.filter((policy) => {
       const policyItem = policyRegistry.available[policy.name];
       // If policy not found in registry, it's invalid
       if (!policyItem) {
@@ -71,7 +71,7 @@ export const adminUpdatePolicyController: AppController = async (c) => {
     // If any policies are invalid, return an error
     if (invalidPolicies.length > 0) {
       return c.json({
-        error: `Invalid policy specification for: ${invalidPolicies.map(p => p.name).join(', ')}`
+        error: `Invalid policy specification for: ${invalidPolicies.map((p) => p.name).join(', ')}`,
       }, 400);
     }
 
