@@ -11,6 +11,7 @@ export const adminListPoliciesController: AppController = (c) => {
           internalName,
           ...item,
           instantiate: undefined,
+          schema: undefined,
         };
       }),
   );
