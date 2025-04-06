@@ -17,6 +17,7 @@ import {
 } from '@nostrify/policies';
 import { FieldItem, zodSchemaToFields } from './parameters.ts';
 import { NPolicy, NStore } from '@nostrify/types';
+import { z } from 'zod';
 import {
   AntiDuplicationPolicyOpts,
   AntiDuplicationPolicyOptsSchema,
@@ -41,6 +42,7 @@ export interface PolicyItem {
   name: string;
   parameters: Record<string, FieldItem>;
   description: string;
+  schema: z.ZodSchema;
 }
 
 export interface PolicyRegistryOpts {
@@ -66,6 +68,7 @@ export class PolicyRegistry {
       description: 'Prevent messages with the exact same content from being submitted repeatedly.',
       name: 'Deduplicate messages',
       parameters: zodSchemaToFields(AntiDuplicationPolicyOptsSchema),
+      schema: AntiDuplicationPolicyOptsSchema,
     },
     'AuthorPolicy': {
       instantiate: () => {
@@ -74,6 +77,7 @@ export class PolicyRegistry {
       description: 'Rejects events by authors without a kind 0 event associated with their pubkey.',
       name: 'Block events without associated profiles',
       parameters: {},
+      schema: z.object({}), // Empty schema since no params are used
     },
     'DomainPolicy': {
       instantiate: (params) => {
@@ -83,6 +87,7 @@ export class PolicyRegistry {
       description: 'Ban events by pubkeys without a valid NIP-05 domain. Domains can also be whitelisted/blacklisted',
       name: 'Filter by NIP-05',
       parameters: zodSchemaToFields(DomainPolicyOptsSchema),
+      schema: DomainPolicyOptsSchema,
     },
     'FiltersPolicy': {
       instantiate: (params) => {
@@ -101,6 +106,7 @@ export class PolicyRegistry {
       description: 'Only allow events matching a given Nostr filter',
       name: 'Filter by Nostr filter',
       parameters: zodSchemaToFields(FiltersPolicyOptsSchema),
+      schema: FiltersPolicyOptsSchema,
     },
     'HashtagPolicy': {
       instantiate: (params) => {
@@ -110,6 +116,7 @@ export class PolicyRegistry {
       description: 'Ban events containing the specified hashtags',
       name: 'Ban hashtags',
       parameters: zodSchemaToFields(HashtagPolicyOptsSchema),
+      schema: HashtagPolicyOptsSchema,
     },
     'HellthreadPolicy': {
       instantiate: (params) => {
@@ -121,6 +128,7 @@ export class PolicyRegistry {
       description: "Prevent 'hellthreads' - notes that tag hundreds of people to cause a nuisance and server load.",
       name: 'Limit events with excessive mentions',
       parameters: zodSchemaToFields(HellthreadPolicyOptsSchema),
+      schema: HellthreadPolicyOptsSchema,
     },
     'KeywordPolicy': {
       instantiate: (params) => {
@@ -130,6 +138,7 @@ export class PolicyRegistry {
       description: 'Ban events that contain specified keywords.',
       name: 'Block certain words',
       parameters: zodSchemaToFields(KeywordPolicyOptsSchema),
+      schema: KeywordPolicyOptsSchema,
     },
     'OpenAIPolicy': {
       instantiate: (params) => {
@@ -141,6 +150,7 @@ export class PolicyRegistry {
       description: "Use OpenAI moderation integration to block posts that don't meet your community guidelines.",
       name: 'Use OpenAI moderation',
       parameters: zodSchemaToFields(OpenAIPolicyOptsSchema),
+      schema: OpenAIPolicyOptsSchema,
     },
     'PowPolicy': {
       instantiate: (params) => {
@@ -152,6 +162,7 @@ export class PolicyRegistry {
       description: 'Use proof-of-work to limit events from spammers.',
       name: 'Require proof-of-work for events',
       parameters: zodSchemaToFields(PowPolicyOptsSchema),
+      schema: PowPolicyOptsSchema,
     },
     'PubkeyBanPolicy': {
       instantiate: (params) => {
@@ -161,6 +172,7 @@ export class PolicyRegistry {
       description: 'Ban events from certain pubkeys',
       name: 'Ban certain pubkeys',
       parameters: zodSchemaToFields(PubkeyBanPolicyOptsSchema),
+      schema: PubkeyBanPolicyOptsSchema,
     },
     'RegexPolicy': {
       instantiate: (params) => {
@@ -170,6 +182,7 @@ export class PolicyRegistry {
       description: 'Ban events that match a certain regular expression.',
       name: 'Filter by regex',
       parameters: zodSchemaToFields(RegexPolicyOptsSchema),
+      schema: RegexPolicyOptsSchema,
     },
     'ReplyBotPolicy': {
       instantiate: (params) => {
@@ -182,6 +195,7 @@ export class PolicyRegistry {
       description: 'Block events that reply too quickly to other events.',
       name: 'Block reply spambots',
       parameters: zodSchemaToFields(ReplyBotPolicyOptsSchema),
+      schema: ReplyBotPolicyOptsSchema,
     },
     'SizePolicy': {
       instantiate: (params) => {
@@ -193,6 +207,7 @@ export class PolicyRegistry {
       description: 'Restrict events that are too big in size.',
       name: 'Block events by size',
       parameters: zodSchemaToFields(SizePolicyOptsSchema),
+      schema: SizePolicyOptsSchema,
     },
     'WhitelistPolicy': {
       instantiate: (params) => {
@@ -202,6 +217,7 @@ export class PolicyRegistry {
       description: 'Allow only whitelisted pubkeys to post. All other events are rejected.',
       name: 'Whitelist people',
       parameters: zodSchemaToFields(WhitelistPolicyOptsSchema),
+      schema: WhitelistPolicyOptsSchema,
     },
     'WoTPolicy': {
       instantiate: (params) => {
@@ -214,6 +230,7 @@ export class PolicyRegistry {
       description: 'Use a web-of-trust to only allow users a certain distance from trusted users to publish posts.',
       name: 'Build a web-of-trust',
       parameters: zodSchemaToFields(WoTPolicyOptsSchema),
+      schema: WoTPolicyOptsSchema,
     },
   };
 }
