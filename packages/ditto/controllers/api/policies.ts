@@ -50,6 +50,31 @@ export const adminUpdatePolicyController: AppController = async (c) => {
   try {
     const req = await c.req.json();
     const parsed = PolicySpecSchema.parse(req);
+
+    // Validate each policy against its specific schema
+    const invalidPolicies = parsed.policies.filter(policy => {
+      const policyItem = policyRegistry.available[policy.name];
+      // If policy not found in registry, it's invalid
+      if (!policyItem) {
+        return true;
+      }
+
+      try {
+        // Try to parse the policy params against the specific schema
+        policyItem.schema.parse(policy.params);
+        return false; // Not invalid
+      } catch (_) {
+        return true; // Invalid policy
+      }
+    });
+
+    // If any policies are invalid, return an error
+    if (invalidPolicies.length > 0) {
+      return c.json({
+        error: `Invalid policy specification for: ${invalidPolicies.map(p => p.name).join(', ')}`
+      }, 400);
+    }
+
     await relay.event(await createPolicyEvent(conf, parsed));
     return c.json({
       message: 'Settings saved successfully.',
