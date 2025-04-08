@@ -36,7 +36,7 @@ test:
 # Start E2E environment
 e2e-environment:
   stage: e2e-setup
-  image: docker/compose:latest
+  image: docker:latest
   services:
     - docker:dind
   variables:
