@@ -36,16 +36,15 @@ test:
 # Start E2E environment
 e2e-environment:
   stage: e2e-setup
-  image: docker:latest
-  services:
-    - docker:dind
-  variables:
-    DOCKER_TLS_CERTDIR: ""
   script:
     - docker compose -f docker-compose.test.yml up -d --build
-    # Wait for ditto instance to become active
-    - end=$((SECONDS + 30)); while [[ $SECONDS -lt $end ]] && ! curl http://localhost:4036; do echo "Waiting for localhost:4036..."; sleep 1; echo $SECONDS ; done
-    # Generate dynamic child pipeline configuration
+    - end=$((SECONDS + 30))
+    - |
+      while [[ $SECONDS -lt $end ]] && ! curl -fs http://localhost:4036 >/dev/null; do
+        echo "Waiting for localhost:4036..."
+        sleep 1
+      done
+    # Generate dynamic child pipeline config
     - |
       cat > child-pipeline.yml << EOF
       playwright-tests:
