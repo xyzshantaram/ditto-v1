@@ -38,12 +38,32 @@ e2e-environment:
   stage: e2e-setup
   image: ubuntu:22.04
   before_script:
+    ## Temporary - Utilize this approach while debugging docker-in-docker networking quirks.
     # Install required packages
     - apt update
     - apt install -y ca-certificates curl
 
     # Install docker via helper script
     - curl -fsSL https://get.docker.com | bash
+
+    # Start Docker daemon in background, redirect logs
+    - dockerd > /tmp/dockerd.log 2>&1 &
+
+    # Wait until Docker daemon is ready
+    - |
+      echo "Waiting for dockerd to be ready..."
+      timeout=30
+      waited=0
+      while ! grep -q 'API listen on /var/run/docker.sock' /tmp/dockerd.log; do
+        sleep 1
+        waited=$((waited + 1))
+        if [ $waited -ge $timeout ]; then
+          echo "❌ Timeout waiting for Docker daemon to start"
+          cat /tmp/dockerd.log
+          exit 1
+        fi
+      done
+      echo "✅ Docker daemon is ready"
   script:
     - docker compose -f docker-compose.test.yml up -d --build
     - end=$((SECONDS + 30))
