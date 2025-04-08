@@ -36,6 +36,7 @@ test:
 # Start E2E environment
 e2e-environment:
   stage: e2e-setup
+  image: ubuntu:22.04
   before_script:
     # Install required packages
     - apt update
