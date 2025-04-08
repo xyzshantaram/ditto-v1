@@ -40,9 +40,7 @@ e2e-environment:
   services:
     - docker:dind
   variables:
-    DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
-    DOCKER_DRIVER: overlay2
   script:
     - docker compose -f docker-compose.test.yml up -d --build
     # Wait for ditto instance to become active
