@@ -13,25 +13,13 @@ import { logi } from '@soapbox/logi';
 // @ts-ignore Don't try to access the env from this worker.
 Deno.env = new Map<string, string>();
 
-interface PolicyInitCommon {
+interface PolicyInit {
   /** Database URL to connect to. */
   databaseUrl: string;
   /** Admin pubkey to use for DittoPgStore checks. */
   pubkey: string;
-  mode: 'script' | 'event';
-}
-
-interface ScriptPolicyInit {
-  /** Path to the policy module (https, jsr, file, etc) */
   path: string;
-  mode: 'script';
 }
-
-interface EventPolicyInit {
-  mode: 'event';
-}
-
-type PolicyInit = PolicyInitCommon & (ScriptPolicyInit | EventPolicyInit);
 
 export class CustomPolicy implements NPolicy {
   private policy: NPolicy = new ReadOnlyPolicy();
@@ -55,40 +43,47 @@ export class CustomPolicy implements NPolicy {
       },
     });
 
+    const policies: NPolicy[] = [];
     const store = new DittoPgStore({
       db,
       conf,
       timeout: 5_000,
     });
-
-    if (opts.mode === 'script') {
+    try {
       const Policy = (await import(opts.path)).default;
-      this.policy = new Policy({ db, store, pubkey });
-    } else {
-      const registry = new PolicyRegistry({ store, antiDuplicationPolicyStore: await Deno.openKv() });
-      const policies: NPolicy[] = [];
-      const event = await store
-        .query([{ kinds: [11984], authors: [await conf.signer.getPublicKey()] }])
-        .then((results) => results[0]);
-
-      const spec: PolicySpec = event ? JSON.parse(event.content) : DEFAULT_POLICY_SPEC;
-
-      for (const item of spec.policies) {
-        const policy = registry.available[item.name];
-        if (!policy) continue;
-        try {
-          policies.push(policy.instantiate(item.params || {}));
-        } catch (e) {
-          logi({
-            level: 'error',
-            ns: 'ditto.system.policy.worker',
-            msg: `Error instantiating policy ${item.name} with params \`${JSON.stringify(item.params)}\`: ${e}`,
-          });
-        }
+      policies.push(new Policy({ db, store, pubkey }));
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('Module not found')) {
+        logi({
+          level: 'info',
+          ns: 'ditto.system.policy',
+          msg: 'Custom policy not found <https://docs.soapbox.pub/ditto/policies/>',
+          path: null,
+        });
       }
-
-      this.policy = new PipePolicy(policies);
     }
+    const registry = new PolicyRegistry({ store, antiDuplicationPolicyStore: await Deno.openKv() });
+    const event = await store
+      .query([{ kinds: [11984], authors: [await conf.signer.getPublicKey()] }])
+      .then((results) => results[0]);
+
+    const spec: PolicySpec = event ? JSON.parse(event.content) : DEFAULT_POLICY_SPEC;
+
+    for (const item of spec.policies) {
+      const policy = registry.available[item.name];
+      if (!policy) continue;
+      try {
+        policies.push(policy.instantiate(item.params || {}));
+      } catch (e) {
+        logi({
+          level: 'error',
+          ns: 'ditto.system.policy.worker',
+          msg: `Error instantiating policy ${item.name} with params \`${JSON.stringify(item.params)}\`: ${e}`,
+        });
+      }
+    }
+
+    this.policy = new PipePolicy(policies);
   }
 }
 

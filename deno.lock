@@ -7,6 +7,7 @@
     "jsr:@denosaurs/plug@1.0.3": "1.0.3",
     "jsr:@esroyo/scoped-performance@^3.1.0": "3.1.0",
     "jsr:@gfx/canvas-wasm@~0.4.2": "0.4.2",
+    "jsr:@gleasonator/policy@*": "0.9.0",
     "jsr:@hono/hono@^4.4.6": "4.7.5",
     "jsr:@negrel/http-ece@0.6.0": "0.6.0",
     "jsr:@negrel/webpush@0.3": "0.3.0",
@@ -131,6 +132,13 @@
       "integrity": "d653be3bd12cb2fa9bbe5d1b1f041a81b91d80b68502761204aaf60e4592532a",
       "dependencies": [
         "jsr:@std/encoding@1.0.5"
+      ]
+    },
+    "@gleasonator/policy@0.9.0": {
+      "integrity": "483f87c3a18fb39f795495d3388453193f1115ab7e130981121f7828ce6b51bb",
+      "dependencies": [
+        "jsr:@nostrify/nostrify@0.36",
+        "jsr:@nostrify/policies"
       ]
     },
     "@hono/hono@4.7.5": {
