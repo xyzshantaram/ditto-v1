@@ -2,23 +2,23 @@ import { DittoConf } from '@ditto/conf';
 import { DittoPolyPg } from '@ditto/db';
 import '@soapbox/safe-fetch/load';
 import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/nostrify';
-import { ReadOnlyPolicy } from '@nostrify/policies';
+import { PipePolicy, ReadOnlyPolicy } from '@nostrify/policies';
 import * as Comlink from 'comlink';
 
 import { ReadOnlySigner } from '@/signers/ReadOnlySigner.ts';
 import { DittoPgStore } from '@/storages/DittoPgStore.ts';
+import { DEFAULT_POLICY_SPEC, PolicyRegistry, PolicySpec } from '@/utils/policies/mod.ts';
+import { logi } from '@soapbox/logi';
 
 // @ts-ignore Don't try to access the env from this worker.
 Deno.env = new Map<string, string>();
 
-/** Serializable object the worker can use to set up the state. */
 interface PolicyInit {
-  /** Path to the policy module (https, jsr, file, etc) */
-  path: string;
   /** Database URL to connect to. */
   databaseUrl: string;
   /** Admin pubkey to use for DittoPgStore checks. */
   pubkey: string;
+  path: string;
 }
 
 export class CustomPolicy implements NPolicy {
@@ -29,8 +29,8 @@ export class CustomPolicy implements NPolicy {
     return this.policy.call(event, signal);
   }
 
-  async init({ path, databaseUrl, pubkey }: PolicyInit): Promise<void> {
-    const Policy = (await import(path)).default;
+  async init(opts: PolicyInit): Promise<void> {
+    const { databaseUrl, pubkey } = opts;
 
     const db = new DittoPolyPg(databaseUrl, { poolSize: 1 });
 
@@ -43,13 +43,47 @@ export class CustomPolicy implements NPolicy {
       },
     });
 
+    const policies: NPolicy[] = [];
     const store = new DittoPgStore({
       db,
       conf,
       timeout: 5_000,
     });
+    try {
+      const Policy = (await import(opts.path)).default;
+      policies.push(new Policy({ db, store, pubkey }));
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('Module not found')) {
+        logi({
+          level: 'info',
+          ns: 'ditto.system.policy',
+          msg: 'Custom policy not found <https://docs.soapbox.pub/ditto/policies/>',
+          path: null,
+        });
+      }
+    }
+    const registry = new PolicyRegistry({ store, antiDuplicationPolicyStore: await Deno.openKv() });
+    const event = await store
+      .query([{ kinds: [11984], authors: [await conf.signer.getPublicKey()] }])
+      .then((results) => results[0]);
 
-    this.policy = new Policy({ db, store, pubkey });
+    const spec: PolicySpec = event ? JSON.parse(event.content) : DEFAULT_POLICY_SPEC;
+
+    for (const item of spec.policies) {
+      const policy = registry.available[item.name];
+      if (!policy) continue;
+      try {
+        policies.push(policy.instantiate(item.params || {}));
+      } catch (e) {
+        logi({
+          level: 'error',
+          ns: 'ditto.system.policy.worker',
+          msg: `Error instantiating policy ${item.name} with params \`${JSON.stringify(item.params)}\`: ${e}`,
+        });
+      }
+    }
+
+    this.policy = new PipePolicy(policies);
   }
 }
 

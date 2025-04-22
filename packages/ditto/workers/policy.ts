@@ -54,27 +54,14 @@ export class PolicyWorker implements NPolicy {
         databaseUrl: conf.databaseUrl,
         pubkey: await conf.signer.getPublicKey(),
       });
-
       logi({
         level: 'info',
         ns: 'ditto.system.policy',
-        msg: 'Using custom policy',
+        msg: `Initialising custom policy`,
         path: conf.policy,
         enabled: true,
       });
     } catch (e) {
-      if (e instanceof Error && e.message.includes('Module not found')) {
-        logi({
-          level: 'info',
-          ns: 'ditto.system.policy',
-          msg: 'Custom policy not found <https://docs.soapbox.pub/ditto/policies/>',
-          path: null,
-          enabled: false,
-        });
-        this.enabled = false;
-        return;
-      }
-
       if (e instanceof Error && e.message.includes('PGlite is not supported in worker threads')) {
         logi({
           level: 'warn',

@@ -152,6 +152,12 @@ import dittoNamesRoute from '@/routes/dittoNamesRoute.ts';
 import pleromaAdminPermissionGroupsRoute from '@/routes/pleromaAdminPermissionGroupsRoute.ts';
 import pleromaStatusesRoute from '@/routes/pleromaStatusesRoute.ts';
 import { DittoRelayStore } from '@/storages/DittoRelayStore.ts';
+import {
+  adminCurrentPolicyController,
+  adminListPoliciesController,
+  adminUpdatePolicyController,
+} from '@/controllers/api/policies.ts';
+import { createPolicyEvent, DEFAULT_POLICY_SPEC } from '@/utils/policies/mod.ts';
 
 export interface AppEnv extends DittoEnv {
   Variables: DittoEnv['Variables'] & {
@@ -198,6 +204,11 @@ const pgstore = new DittoPgStore({
 
 const pool = new DittoPool({ conf, relay: pgstore });
 const relay = new DittoRelayStore({ db, conf, pool, relay: pgstore });
+const havePolicy = await relay.count([{ kinds: [11984], authors: [await conf.signer.getPublicKey()] }]);
+
+if (!havePolicy.count) {
+  await relay.event(await createPolicyEvent(conf, DEFAULT_POLICY_SPEC));
+}
 
 await createNip89({ conf, relay });
 await seedZapSplits({ conf, relay });
@@ -498,6 +509,10 @@ app.delete('/api/v1/pleroma/admin/users/tag', userMiddleware({ role: 'admin' }),
 app.patch('/api/v1/pleroma/admin/users/suggest', userMiddleware({ role: 'admin' }), pleromaAdminSuggestController);
 app.patch('/api/v1/pleroma/admin/users/unsuggest', userMiddleware({ role: 'admin' }), pleromaAdminUnsuggestController);
 
+app.get('/api/v1/admin/ditto/policies', userMiddleware({ role: 'admin' }), adminListPoliciesController);
+app.get('/api/v1/admin/ditto/policies/current', userMiddleware({ role: 'admin' }), adminCurrentPolicyController);
+app.put('/api/v1/admin/ditto/policies/current', userMiddleware({ role: 'admin' }), adminUpdatePolicyController);
+
 app.route('/api/v1/custom_emojis', customEmojisRoute);
 
 // Not (yet) implemented.
@@ -560,5 +575,4 @@ app.get('*', publicFiles, staticFiles, ratelimit, frontendController);
 app.onError(errorHandler);
 
 export default app;
-
 export type { AppContext, AppController, AppMiddleware };

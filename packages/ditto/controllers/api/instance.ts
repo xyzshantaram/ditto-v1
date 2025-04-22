@@ -2,6 +2,7 @@ import denoJson from 'deno.json' with { type: 'json' };
 
 import { AppController } from '@/app.ts';
 import { getInstanceMetadata } from '@/utils/instance.ts';
+import { logi } from '@soapbox/logi';
 
 const version = `3.0.0 (compatible; Ditto ${denoJson.version})`;
 
@@ -15,13 +16,60 @@ const features = [
   'v2_suggestions',
 ];
 
+const cache = (f: () => Promise<number | undefined>, interval: number) => {
+  let lastCheck = 0;
+  let value: number | undefined;
+
+  return async () => {
+    const now = Date.now();
+    if (value === undefined || now - lastCheck > interval) {
+      lastCheck = now;
+      try {
+        value = await f();
+      } catch (error) {
+        logi({
+          level: 'error',
+          ns: 'ditto.routes.instanceV1',
+          message: `Error fetching cached value: ${error}`,
+        });
+        value = undefined; // Ensure we retry next time
+      }
+    }
+    return value ?? 0; // Prevent returning undefined
+  };
+};
+
 const instanceV1Controller: AppController = async (c) => {
-  const { conf } = c.var;
+  const { conf, db } = c.var;
   const { host, protocol } = conf.url;
   const meta = await getInstanceMetadata(c.var);
 
   /** Protocol to use for WebSocket URLs, depending on the protocol of the `LOCAL_DOMAIN`. */
   const wsProtocol = protocol === 'http:' ? 'ws:' : 'wss:';
+  const MINS_10 = 10 * 60 * 1000;
+
+  const userCount = cache(async () => {
+    return await db.kysely
+      .selectFrom('author_stats')
+      .where('nip05_domain', '=', host)
+      .select(({ fn }) => fn.count<number>('pubkey').distinct().as('users'))
+      .executeTakeFirst().then((obj) => obj?.users || 0);
+  }, MINS_10);
+
+  const domainCount = cache(async () => {
+    return await db.kysely
+      .selectFrom('author_stats')
+      .select(({ fn }) => fn.count<number>('nip05_domain').distinct().as('domains'))
+      .executeTakeFirst().then((obj) => obj?.domains || 0);
+  }, MINS_10);
+
+  const statusCount = cache(async () => {
+    return await db.kysely
+      .selectFrom('nostr_events')
+      .where('kind', '=', 1)
+      .select(({ fn }) => fn.countAll<number>().as('events'))
+      .executeTakeFirst().then((obj) => obj?.events || 0);
+  }, MINS_10);
 
   return c.json({
     uri: host,
@@ -58,9 +106,9 @@ const instanceV1Controller: AppController = async (c) => {
     },
     languages: ['en'],
     stats: {
-      domain_count: 0,
-      status_count: 0,
-      user_count: 0,
+      domain_count: Number(await domainCount()),
+      status_count: Number(await statusCount()),
+      user_count: Number(await userCount()),
     },
     urls: {
       streaming_api: `${wsProtocol}//${host}`,
