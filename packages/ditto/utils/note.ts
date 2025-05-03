@@ -28,7 +28,9 @@ export function contentToHtml(content: string, mentions: MastodonMention[], opts
       hashtag: ({ content }) => {
         const tag = content.replace(/^#/, '');
         const href = conf.local(`/tags/${tag}`);
-        return html`<a class="mention hashtag" href="${href}" rel="tag"><span>#</span>${tag}</a>`;
+        return html`
+          <a class="mention hashtag" href="${href}" rel="tag"><span>#</span>${tag}</a>
+        `;
       },
       url: ({ attributes, content }) => {
         try {
@@ -47,7 +49,10 @@ export function contentToHtml(content: string, mentions: MastodonMention[], opts
                 const acct = mention?.acct ?? npub;
                 const name = mention?.acct ?? npub.substring(0, 8);
                 const href = mention?.url ?? conf.local(`/@${acct}`);
-                return html`<span class="h-card"><a class="u-url mention" href="${href}" rel="ugc">@<span>${name}</span></a></span>${extra}`;
+                return html`
+                  <span class="h-card"><a class="u-url mention" href="${href}" rel="ugc">@<span
+                      >${name}</span></a></span>${extra}
+                `;
               } else {
                 return '';
               }
