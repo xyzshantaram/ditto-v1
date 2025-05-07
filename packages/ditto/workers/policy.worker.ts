@@ -85,6 +85,10 @@ export class CustomPolicy implements NPolicy {
 
     this.policy = new PipePolicy(policies);
   }
+
+  close() {
+    self.close();
+  }
 }
 
 Comlink.expose(new CustomPolicy());

@@ -86,4 +86,8 @@ export class PolicyWorker implements NPolicy {
       throw new Error(`DITTO_POLICY (error importing policy): ${conf.policy}`);
     }
   }
+
+  [Symbol.dispose]() {
+    this.worker.close();
+  }
 }
