@@ -1,5 +1,5 @@
 import { type AppController } from '@/app.ts';
-import { createPolicyEvent } from '@/utils/policies/mod.ts';
+import { createPolicyEvent, DEFAULT_POLICY_SPEC } from '@/utils/policies/mod.ts';
 import { policyRegistry } from '@/utils/policies/mod.ts';
 import { z } from 'zod';
 
@@ -27,7 +27,7 @@ export const adminCurrentPolicyController: AppController = async (c) => {
   }]).then((events) => events[0]);
 
   if (current) return c.json({ spec: JSON.parse(current.content) });
-  return c.json({ spec: { policies: [] } });
+  return c.json({ spec: { policies: DEFAULT_POLICY_SPEC } });
 };
 
 const PolicySpecSchema = z.object({
