@@ -23,6 +23,7 @@ interface PolicyInit {
 
 export class CustomPolicy implements NPolicy {
   private policy: NPolicy = new ReadOnlyPolicy();
+  registryKv: Deno.Kv | undefined;
 
   // deno-lint-ignore require-await
   async call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK> {
@@ -62,7 +63,8 @@ export class CustomPolicy implements NPolicy {
         });
       }
     }
-    const registry = new PolicyRegistry({ store, antiDuplicationPolicyStore: await Deno.openKv() });
+    this.registryKv = await Deno.openKv();
+    const registry = new PolicyRegistry({ store, antiDuplicationPolicyStore: this.registryKv });
     const event = await store
       .query([{ kinds: [11984], authors: [await conf.signer.getPublicKey()] }])
       .then((results) => results[0]);
@@ -87,6 +89,7 @@ export class CustomPolicy implements NPolicy {
   }
 
   close() {
+    this.registryKv?.close();
     self.close();
   }
 }
