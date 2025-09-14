@@ -19,6 +19,6 @@ export function cron(ctx: TrendsCtx) {
 
   Deno.cron('refresh top authors', '20 * * * *', async () => {
     const { kysely } = ctx.db;
-    await sql`refresh materialized view top_authors`.execute(kysely);
+    await sql`refresh materialized view CONCURRENTLY top_authors`.execute(kysely);
   });
 }
