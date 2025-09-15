@@ -302,23 +302,26 @@ export async function updateAuthorStats(
     search: '',
   };
 
+  // Try to update first - this is more efficient under high concurrency
   const prev = await kysely
     .selectFrom('author_stats')
     .selectAll()
-    .forUpdate()
     .where('pubkey', '=', pubkey)
     .executeTakeFirst();
 
-  const stats = fn(prev ?? empty);
-
   if (prev) {
+    // Row exists, update it
+    const stats = fn(prev);
     await kysely.updateTable('author_stats')
       .set(stats)
       .where('pubkey', '=', pubkey)
       .execute();
   } else {
+    // Row doesn't exist, insert it
+    const stats = fn(empty);
     await kysely.insertInto('author_stats')
       .values({ ...empty, ...stats })
+      .onConflict((oc) => oc.column('pubkey').doUpdateSet(stats))
       .execute();
   }
 }
@@ -352,23 +355,26 @@ export async function updateEventStats(
     reactions: '{}',
   };
 
+  // Try to update first - this is more efficient under high concurrency
   const prev = await kysely
     .selectFrom('event_stats')
     .selectAll()
-    .forUpdate()
     .where('event_id', '=', eventId)
     .executeTakeFirst();
 
-  const stats = fn(prev ?? empty);
-
   if (prev) {
+    // Row exists, update it
+    const stats = fn(prev);
     await kysely.updateTable('event_stats')
       .set(stats)
       .where('event_id', '=', eventId)
       .execute();
   } else {
+    // Row doesn't exist, insert it
+    const stats = fn(empty);
     await kysely.insertInto('event_stats')
       .values({ ...empty, ...stats })
+      .onConflict((oc) => oc.column('event_id').doUpdateSet(stats))
       .execute();
   }
 }
