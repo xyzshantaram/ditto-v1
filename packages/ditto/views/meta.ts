@@ -21,34 +21,58 @@ export function renderMetadata(url: string, { account, status, instance }: Metad
   const height = attachment?.meta?.original?.height;
 
   if (title) {
-    tags.push(html`<title>${title}</title>`);
-    tags.push(html`<meta property="og:title" content="${title}">`);
-    tags.push(html`<meta name="twitter:title" content="${title}">`);
+    tags.push(html`
+      <title>${title}</title>
+    `);
+    tags.push(html`
+      <meta property="og:title" content="${title}">
+    `);
+    tags.push(html`
+      <meta name="twitter:title" content="${title}">
+    `);
   }
 
   if (description) {
-    tags.push(html`<meta name="description" content="${description}">`);
-    tags.push(html`<meta property="og:description" content="${description}">`);
-    tags.push(html`<meta name="twitter:description" content="${description}">`);
+    tags.push(html`
+      <meta name="description" content="${description}">
+    `);
+    tags.push(html`
+      <meta property="og:description" content="${description}">
+    `);
+    tags.push(html`
+      <meta name="twitter:description" content="${description}">
+    `);
   }
 
   if (image) {
-    tags.push(html`<meta property="og:image" content="${image}">`);
-    tags.push(html`<meta name="twitter:image" content="${image}">`);
+    tags.push(html`
+      <meta property="og:image" content="${image}">
+    `);
+    tags.push(html`
+      <meta name="twitter:image" content="${image}">
+    `);
   }
 
   if (typeof width === 'number' && typeof height === 'number') {
-    tags.push(html`<meta property="og:image:width" content="${width}">`);
-    tags.push(html`<meta property="og:image:height" content="${height}">`);
+    tags.push(html`
+      <meta property="og:image:width" content="${width}">
+    `);
+    tags.push(html`
+      <meta property="og:image:height" content="${height}">
+    `);
   }
 
   if (siteName) {
-    tags.push(html`<meta property="og:site_name" content="${siteName}">`);
+    tags.push(html`
+      <meta property="og:site_name" content="${siteName}">
+    `);
   }
 
   // Extra tags (always present if other tags exist).
   if (tags.length > 0) {
-    tags.push(html`<meta property="og:url" content="${url}">`);
+    tags.push(html`
+      <meta property="og:url" content="${url}">
+    `);
     tags.push('<meta property="og:type" content="website">');
     tags.push('<meta name="twitter:card" content="summary">');
   }
