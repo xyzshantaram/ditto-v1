@@ -49,6 +49,8 @@ export async function updateStats(opts: UpdateStatsOpts): Promise<void> {
 async function handleEvent1(opts: UpdateStatsOpts): Promise<void> {
   const { conf, kysely, event, x = 1 } = opts;
 
+  await bumpNotesCount(kysely, event.pubkey, x);
+
   await updateAuthorStats(kysely, event.pubkey, (prev) => {
     const now = event.created_at;
 
@@ -72,7 +74,6 @@ async function handleEvent1(opts: UpdateStatsOpts): Promise<void> {
     }
 
     return {
-      notes_count: Math.max(0, prev.notes_count + x),
       streak_start: start || null,
       streak_end: end || null,
     };
@@ -104,7 +105,7 @@ async function handleEvent3(opts: UpdateStatsOpts): Promise<void> {
 
   const following = getTagSet(event.tags, 'p');
 
-  await updateAuthorStats(kysely, event.pubkey, () => ({ following_count: following.size }));
+  await bumpFollowingCount(kysely, event.pubkey, following.size);
 
   const [prev] = await relay.query([
     { kinds: [3], authors: [event.pubkey], limit: 1 },
@@ -113,19 +114,11 @@ async function handleEvent3(opts: UpdateStatsOpts): Promise<void> {
   const { added, removed } = getFollowDiff(event.tags, prev?.tags);
 
   for (const pubkey of added) {
-    await updateAuthorStats(
-      kysely,
-      pubkey,
-      ({ followers_count }) => ({ followers_count: Math.max(0, followers_count + x) }),
-    );
+    await bumpFollowersCount(kysely, pubkey, x);
   }
 
   for (const pubkey of removed) {
-    await updateAuthorStats(
-      kysely,
-      pubkey,
-      ({ followers_count }) => ({ followers_count: Math.max(0, followers_count - x) }),
-    );
+    await bumpFollowersCount(kysely, pubkey, -x);
   }
 }
 
@@ -286,6 +279,71 @@ export function getAuthorStats(
     .selectAll()
     .where('pubkey', '=', pubkey)
     .executeTakeFirst();
+}
+
+/** Increment/decrement followers_count atomically without an extra SELECT. */
+export async function bumpFollowersCount(
+  kysely: Kysely<DittoTables>,
+  pubkey: string,
+  delta: number,
+): Promise<void> {
+  await kysely
+    .insertInto('author_stats')
+    .values({
+      pubkey,
+      followers_count: Math.max(0, delta),
+      following_count: 0,
+      notes_count: 0,
+      search: '',
+    })
+    .onConflict((oc) =>
+      oc.column('pubkey').doUpdateSet(({ eb, ref }) => ({
+        followers_count: eb.fn.greatest(0, ref('followers_count') + delta),
+      }))
+    )
+    .execute();
+}
+
+/** Set following_count directly (value is fully known). */
+export async function bumpFollowingCount(
+  kysely: Kysely<DittoTables>,
+  pubkey: string,
+  value: number,
+): Promise<void> {
+  await kysely
+    .insertInto('author_stats')
+    .values({
+      pubkey,
+      following_count: value,
+      followers_count: 0,
+      notes_count: 0,
+      search: '',
+    })
+    .onConflict((oc) => oc.column('pubkey').doUpdateSet({ following_count: value }))
+    .execute();
+}
+
+/** Increment/decrement notes_count atomically without an extra SELECT. */
+export async function bumpNotesCount(
+  kysely: Kysely<DittoTables>,
+  pubkey: string,
+  delta: number,
+): Promise<void> {
+  await kysely
+    .insertInto('author_stats')
+    .values({
+      pubkey,
+      notes_count: Math.max(0, delta),
+      followers_count: 0,
+      following_count: 0,
+      search: '',
+    })
+    .onConflict((oc) =>
+      oc.column('pubkey').doUpdateSet(({ eb, ref }) => ({
+        notes_count: eb.fn.greatest(0, ref('notes_count') + delta),
+      }))
+    )
+    .execute();
 }
 
 /** Retrieve the author stats by the pubkey, then call the callback to update it. */
