@@ -151,12 +151,20 @@ route.post('/mint/:quote_id', userMiddleware({ enc: 'nip44' }), async (c) => {
 });
 
 const createWalletSchema = z.object({
-  mints: z.array(z.string().url()).nonempty().transform((val) => {
-    return [...new Set(val)];
-  }),
-  relays: z.array(z.string().url()).transform((val) => {
-    return [...new Set(val)];
-  }),
+  mints: z.array(
+    z.string().url()
+      .transform((url) => new URL(url).href),
+  ).nonempty()
+    .transform((val) => {
+      return [...new Set(val)];
+    }),
+  relays: z.array(
+    z.string().url()
+      .transform((url) => new URL(url).href),
+  )
+    .transform((val) => {
+      return [...new Set(val)];
+    }),
 });
 
 /**
